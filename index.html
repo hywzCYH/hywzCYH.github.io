@@ -1,21 +1,387 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Namerena 的主页</title>
-    <style>
-        body { font-family: -apple-system, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f5f5f7; color: #333; }
-        .container { text-align: center; padding: 40px; background: white; border-radius: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
-        h1 { margin-bottom: 10px; }
-        p { color: #666; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>八围极速测算 (8线程终极修复版)</title>
+<style>
+body { font-family: -apple-system, sans-serif; background: #1e1e1e; color: #d4d4d4; padding: 10px; margin: 0; }
+.container { max-width: 600px; margin: 0 auto; }
+.form-group { margin-bottom: 10px; }
+.form-group label { display: block; margin-bottom: 3px; font-weight: bold; font-size: 13px; color: #4ec9b0; }
+.form-group input, .form-group select { width: 100%; padding: 6px; box-sizing: border-box; font-size: 14px; background: #2d2d2d; color: #fff; border: 1px solid #555; border-radius: 4px;}
+.row { display: flex; gap: 10px; }
+.row > div { flex: 1; }
+.btn { width: 100%; padding: 12px; background: #0e639c; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; font-weight: bold; margin-top: 10px; }
+.btn:disabled { background: #555; }
+.copy-btn { background: #28a745; margin-top: 10px; }
+#progressBarBG { width: 100%; height: 20px; background: #333; border-radius: 10px; overflow: hidden; margin-top: 15px; display: none; }
+#progressBar { width: 0%; height: 100%; background: #0e639c; transition: width 0.2s; }
+#statusText { font-size: 12px; color: #aaa; text-align: center; margin-top: 5px; font-weight: bold; display: none;}
+#timeText { font-size: 12px; color: #17a2b8; text-align: center; font-weight: bold; display: none; margin-top: 5px; }
+#excitingNews { height: 120px; overflow-y: auto; background: #3a2e00; border: 1px solid #ffc107; padding: 8px; font-family: monospace; font-size: 12px; margin-top: 15px; border-radius: 6px; display: none; color: #ffc107; }
+.news-item { border-bottom: 1px dashed #665200; padding: 4px 0; }
+.result-box { width: 100%; height: 280px; background: #2d2d2d; color: #d4d4d4; border: 1px solid #555; padding: 10px; box-sizing: border-box; font-family: monospace; font-size: 12px; margin-top: 10px; display: none; }
+.history-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; margin-top: 15px; }
+.btn-small { padding: 4px 10px; font-size: 12px; background: #555; color: #fff; border: none; border-radius: 4px; cursor: pointer; margin-left: 5px;}
+</style>
 </head>
 <body>
-    <div class="container">
-        <h1>你好，我是 Namerena 👋</h1>
-        <p>这是我的第一个 Github Pages 网站。</p>
-        <p>目前的交互完全够用！</p>
+<div class="container">
+    <h2 style="font-size: 18px;">八围极速统计 (8线程)</h2>
+    <div class="row">
+        <div class="form-group"><label>前缀</label><input type="text" id="prefix" value="HYY"></div>
+        <div class="form-group"><label>战队名 (不带@)</label><input type="text" id="team" value="HYWZ"></div>
     </div>
+    <div class="row" style="align-items: flex-end;">
+        <div class="form-group" style="flex: 1;"><label>起始号</label><input type="number" id="start" value="0" step="0.1"></div>
+        <div class="form-group" style="flex: 1;"><label>结束号</label><input type="number" id="end" value="1" step="0.1"></div>
+        <div class="form-group" style="flex: 0.8;">
+            <label>单位</label>
+            <select id="unit">
+                <option value="1000000">100w</option>
+                <option value="10000000">1000w</option>
+                <option value="100000000">1E</option>
+                <option value="1000000000">10E</option>
+            </select>
+        </div>
+    </div>
+    <div class="row">
+        <div class="form-group"><label>播报:八围 ≥</label><input type="number" id="th_eight" value="755"></div>
+        <div class="form-group"><label>播报:七围 ≥</label><input type="number" id="th_seven" value="655"></div>
+        <div class="form-group"><label>播报:华丽 ≥</label><input type="number" id="th_gor" value="90"></div>
+    </div>
+    <div class="history-header">
+        <label style="color:#4ec9b0; font-size:13px; font-weight:bold;">【可选】粘贴历史数据</label>
+        <div><button class="btn-small" style="background:#17a2b8;" onclick="document.getElementById('oldData').value=''">清空</button></div>
+    </div>
+    <textarea id="oldData" placeholder="把以前生成的报告复制到这里..." style="height:60px; background:#2d2d2d; color:#fff; width:100%; border:1px solid #555; font-size:11px; border-radius:4px; padding:6px; box-sizing:border-box; margin-bottom:10px;"></textarea>
+    <button class="btn" id="runBtn" onclick="startTest()">开始测算</button>
+    <div id="progressBarBG"><div id="progressBar"></div></div>
+    <div id="statusText"></div>
+    <div id="timeText"></div>
+    <div id="excitingNews"><div style="font-weight:bold; margin-bottom:5px;">🎉 振奋人心播报 🎉</div><div id="newsList"></div></div>
+    <textarea id="copyArea" class="result-box" readonly></textarea>
+    <button class="btn copy-btn" onclick="copyResult()">📋 一键复制结果</button>
+</div>
+
+<script>
+let maxE8 = {val: -1, list: []}, maxS7 = {val: -1, list: []}, maxGor = {val: -1, list: []};
+let histE8 = {val: -1, list: []}, histS7 = {val: -1, list: []}, histGor = {val: -1, list: []};
+let isRunning = false, PREFIX_STR = "", TEAM_STR = "", START = 0, END = 0;
+let th_e8 = 755, th_s7 = 655, th_gor = 90;
+
+function pushUnique(list, obj) {
+    for (let i = 0; i < list.length; i++) if (list[i].name === obj.name) return;
+    if (list.length < 200) list.push(obj);
+}
+
+function parseHistoryData() {
+    let oldText = document.getElementById('oldData').value.trim();
+    if (!oldText) return;
+    const lines = oldText.split('\n');
+    let curSection = "";
+    for (let line of lines) {
+        line = line.trim(); if (!line) continue;
+        if (line.includes("【八围最高】")) { curSection = "e8"; continue; }
+        if (line.includes("【七围最高】")) { curSection = "s7"; continue; }
+        if (line.includes("【华丽最高】")) { curSection = "gor"; continue; }
+        if (curSection && line.includes("|") && line.includes("HP:")) {
+            let name = line.split("|")[0].trim();
+            let e8M = line.match(/八围:\s*([\d.]+)/);
+            let s7M = line.match(/七围:\s*(\d+)/);
+            let gorM = line.match(/华丽:\s*(\d+)/);
+            let hpM = line.match(/HP:\s*(\d+)\s*攻:\s*(\d+)\s*防:\s*(\d+)\s*速:\s*(\d+)\s*敏:\s*(\d+)\s*魔:\s*(\d+)\s*抗:\s*(\d+)\s*智:\s*(\d+)/);
+            if (e8M && s7M && gorM && hpM) {
+                let obj = { name: name, e8: parseFloat(e8M[1]), s7: parseInt(s7M[1]), gor: parseInt(gorM[1]), hp: parseInt(hpM[1]), atk: parseInt(hpM[2]), def: parseInt(hpM[3]), spd: parseInt(hpM[4]), agi: parseInt(hpM[5]), mag: parseInt(hpM[6]), res: parseInt(hpM[7]), intel: parseInt(hpM[8]) };
+                if (curSection === "e8") { if (obj.e8 > histE8.val) { histE8.val = obj.e8; histE8.list = [obj]; } else if (obj.e8 === histE8.val) pushUnique(histE8.list, obj); }
+                else if (curSection === "s7") { if (obj.s7 > histS7.val) { histS7.val = obj.s7; histS7.list = [obj]; } else if (obj.s7 === histS7.val) pushUnique(histS7.list, obj); }
+                else if (curSection === "gor") { if (obj.gor > histGor.val) { histGor.val = obj.gor; histGor.list = [obj]; } else if (obj.gor === histGor.val) pushUnique(histGor.list, obj); }
+            }
+        }
+    }
+}
+
+function copyResult() {
+    let textArea = document.getElementById("copyArea");
+    textArea.select(); textArea.setSelectionRange(0, 999999);
+    try { if (document.execCommand("copy")) alert("报告已复制！"); else alert("自动复制失败，请长按手动复制。"); } catch (err) { alert("请长按手动复制。"); }
+}
+
+const workerCode = `
+const g_init_S = new Uint8Array(256);
+for (let i = 0; i < 256; i++) g_init_S[i] = i;
+const g_base = new Int32Array(128);
+
+self.onmessage = function(e) {
+    let d = e.data;
+    let currentN = d.start, endN = d.end;
+    let p_len = d.prefix.length, t_len = d.team.length;
+    let th_e8 = d.th_e8, th_s7 = d.th_s7, th_gor = d.th_gor;
+
+    let nbuf = new Uint8Array(256);
+    nbuf[0] = 0;
+    for(let k=0; k<p_len; k++) nbuf[k+1] = d.prefix.charCodeAt(k);
+
+    let tk = new Uint8Array(256);
+    tk[0] = 0;
+    for(let k=0; k<t_len; k++) tk[k+1] = d.team.charCodeAt(k);
+    
+    let S_team = new Uint8Array(256);
+    for (let i = 0; i < 256; i++) S_team[i] = i;
+    let jt = 0, kt = 0, tkl = t_len + 1;
+    for (let i = 0; i < 256; i++) {
+        jt = (jt + S_team[i] + tk[kt]) & 0xFF;
+        let tmp = S_team[i]; S_team[i] = S_team[jt]; S_team[jt] = tmp;
+        kt++; if (kt >= tkl) kt = 0;
+    }
+
+    let S = new Uint8Array(256);
+    let localE8 = {val: -1, list: []}, localS7 = {val: -1, list: []}, localGor = {val: -1, list: []};
+
+    function doWork() {
+        let count = 0;
+        let B = g_base, ST = S_team, S_loc = S;
+        let j, k_idx, i, tmp, kl, offset, num_len, temp, ptr, startPos, n, cnt, m, rem;
+
+        while (currentN < endN) {
+            n = currentN;
+            offset = p_len + 1;
+            num_len = 0;
+            
+            if(n === 0) { nbuf[offset] = 48; num_len = 1; }
+            else {
+                temp = n;
+                ptr = offset + 25; // 加大偏移量，防覆盖
+                while(temp > 0) {
+                    rem = temp % 10;
+                    ptr--;
+                    nbuf[ptr] = 48 + rem;
+                    temp = Math.floor(temp / 10); // 修复大数溢出
+                    num_len++;
+                }
+                startPos = offset + 25 - num_len;
+                for(let k=0; k<num_len; k++) nbuf[offset + k] = nbuf[startPos + k];
+            }
+            kl = offset + num_len; 
+
+            S_loc.set(ST);
+            
+            j = 0; k_idx = 0;
+            for(i=0; i<256; i++) {
+                j = (j + S_loc[i] + nbuf[k_idx]) & 0xFF;
+                tmp = S_loc[i]; S_loc[i] = S_loc[j]; S_loc[j] = tmp;
+                k_idx++; if(k_idx >= kl) k_idx = 0;
+            }
+            j = 0; k_idx = 0;
+            for(i=0; i<256; i++) {
+                j = (j + S_loc[i] + nbuf[k_idx]) & 0xFF;
+                tmp = S_loc[i]; S_loc[i] = S_loc[j]; S_loc[j] = tmp;
+                k_idx++; if(k_idx >= kl) k_idx = 0;
+            }
+
+            cnt = 0;
+            for (i = 0; i < 256 && cnt < 128; i++) {
+                m = (S_loc[i] * 181 + 160) & 0xFF;
+                if (m >= 89 && m < 217) { B[cnt] = m & 63; cnt++; }
+            }
+
+            for(i=1; i<10; i++) {
+                let key = B[i]; let k = i - 1;
+                while(k >= 0 && B[k] > key) { B[k+1] = B[k]; k--; }
+                B[k+1] = key;
+            }
+            let hp = 154 + B[3] + B[4] + B[5] + B[6];
+
+            let v1, v2, v3, m3;
+            v1 = B[10]; v2 = B[11]; v3 = B[12];
+            if(v1 > v2) { m3=v1; v1=v2; v2=m3; } if(v2 > v3) { m3=v2; v2=v3; v3=m3; } if(v1 > v2) { m3=v1; v1=v2; v2=m3; }
+            let atk = v2 + 36;
+
+            v1 = B[13]; v2 = B[14]; v3 = B[15];
+            if(v1 > v2) { m3=v1; v1=v2; v2=m3; } if(v2 > v3) { m3=v2; v2=v3; v3=m3; } if(v1 > v2) { m3=v1; v1=v2; v2=m3; }
+            let def = v2 + 36;
+
+            v1 = B[16]; v2 = B[17]; v3 = B[18];
+            if(v1 > v2) { m3=v1; v1=v2; v2=m3; } if(v2 > v3) { m3=v2; v2=v3; v3=m3; } if(v1 > v2) { m3=v1; v1=v2; v2=m3; }
+            let spd = v2 + 36;
+
+            v1 = B[19]; v2 = B[20]; v3 = B[21];
+            if(v1 > v2) { m3=v1; v1=v2; v2=m3; } if(v2 > v3) { m3=v2; v2=v3; v3=m3; } if(v1 > v2) { m3=v1; v1=v2; v2=m3; }
+            let agi = v2 + 36;
+
+            v1 = B[22]; v2 = B[23]; v3 = B[24];
+            if(v1 > v2) { m3=v1; v1=v2; v2=m3; } if(v2 > v3) { m3=v2; v2=v3; v3=m3; } if(v1 > v2) { m3=v1; v1=v2; v2=m3; }
+            let mag = v2 + 36;
+
+            v1 = B[25]; v2 = B[26]; v3 = B[27];
+            if(v1 > v2) { m3=v1; v1=v2; v2=m3; } if(v2 > v3) { m3=v2; v2=v3; v3=m3; } if(v1 > v2) { m3=v1; v1=v2; v2=m3; }
+            let res = v2 + 36;
+
+            v1 = B[28]; v2 = B[29]; v3 = B[30];
+            if(v1 > v2) { m3=v1; v1=v2; v2=m3; } if(v2 > v3) { m3=v2; v2=v3; v3=m3; } if(v1 > v2) { m3=v1; v1=v2; v2=m3; }
+            let intel = v2 + 36;
+
+            let e8 = (hp / 3.0) + atk + def + spd + agi + mag + res + intel;
+            let s7 = atk + def + spd + agi + mag + res + intel;
+            let gor = Math.min(atk, def, spd, agi, mag, res, intel);
+
+            let s_name = d.prefix + n + "@" + d.team;
+            
+            let needObj = false;
+            if (e8 >= localE8.val || s7 >= localS7.val || gor >= localGor.val) needObj = true;
+            if (gor >= th_gor || s7 >= th_s7 || e8 >= th_e8) {
+                if (!needObj) needObj = true;
+                self.postMessage({ type: 'exciting', name: s_name, e8: e8, s7: s7, gor: gor });
+            }
+
+            if (needObj) {
+                let obj = {name: s_name, hp, atk, def, spd, agi, mag, res, intel, e8, s7, gor};
+                if (e8 > localE8.val) { localE8.val = e8; localE8.list = [obj]; } else if (e8 === localE8.val && localE8.list.length < 200) localE8.list.push(obj);
+                if (s7 > localS7.val) { localS7.val = s7; localS7.list = [obj]; } else if (s7 === localS7.val && localS7.list.length < 200) localS7.list.push(obj);
+                if (gor > localGor.val) { localGor.val = gor; localGor.list = [obj]; } else if (gor === localGor.val && localGor.list.length < 200) localGor.list.push(obj);
+            }
+
+            currentN++;
+            count++;
+            
+            if (count === 500000) {
+                count = 0;
+                // 发送总进度 currentN - d.start
+                self.postMessage({ type: 'progress', count: currentN - d.start, e8: localE8, s7: localS7, gor: localGor });
+                localE8 = {val: -1, list: []}; localS7 = {val: -1, list: []}; localGor = {val: -1, list: []};
+                setTimeout(doWork, 0); return;
+            }
+        }
+
+        // 发送最终完成信号，带总进度
+        self.postMessage({ type: 'done', count: currentN - d.start, e8: localE8, s7: localS7, gor: localGor });
+    }
+    doWork();
+};
+`;
+
+const workerBlob = new Blob([workerCode], { type: 'application/javascript' });
+const workerUrl = URL.createObjectURL(workerBlob);
+let threadProgress = new Array(8).fill(0);
+
+function mergeWorkerData(data) {
+    if (data.e8.val > maxE8.val) { maxE8.val = data.e8.val; maxE8.list = data.e8.list; } else if (data.e8.val === maxE8.val) { for(let item of data.e8.list) pushUnique(maxE8.list, item); }
+    if (data.s7.val > maxS7.val) { maxS7.val = data.s7.val; maxS7.list = data.s7.list; } else if (data.s7.val === maxS7.val) { for(let item of data.s7.list) pushUnique(maxS7.list, item); }
+    if (data.gor.val > maxGor.val) { maxGor.val = data.gor.val; maxGor.list = data.gor.list; } else if (data.gor.val === maxGor.val) { for(let item of data.gor.list) pushUnique(maxGor.list, item); }
+}
+
+function updateUI() {
+    let currentTotal = 0;
+    for(let p of threadProgress) currentTotal += p;
+    let el = (performance.now() - window.t0) / 1000;
+    let speed = Math.round(currentTotal / el);
+    let percent = Math.min(100, (currentTotal / window.totalCount) * 100);
+    
+    document.getElementById('progressBar').style.width = percent.toFixed(1) + '%';
+    document.getElementById('statusText').innerText = `进度: ${Math.min(currentTotal, window.totalCount)}/${window.totalCount} | 速度: ${speed}/s`;
+    document.getElementById('timeText').innerText = `耗时: ${(el).toFixed(1)}s | 剩余: ${Math.round((window.totalCount - currentTotal) / (speed || 1))}s`;
+}
+
+function startTest() {
+    if (isRunning) return;
+    isRunning = true;
+    document.getElementById('runBtn').disabled = true;
+    document.getElementById('progressBarBG').style.display = 'block';
+    document.getElementById('statusText').style.display = 'block';
+    document.getElementById('timeText').style.display = 'block';
+    document.getElementById('copyArea').style.display = 'none';
+    document.getElementById('excitingNews').style.display = 'none';
+    document.getElementById('newsList').innerHTML = "";
+
+    histE8 = {val: -1, list: []}; histS7 = {val: -1, list: []}; histGor = {val: -1, list: []};
+    parseHistoryData();
+    maxE8 = JSON.parse(JSON.stringify(histE8));
+    maxS7 = JSON.parse(JSON.stringify(histS7));
+    maxGor = JSON.parse(JSON.stringify(histGor));
+
+    PREFIX_STR = document.getElementById('prefix').value.trim();
+    TEAM_STR = document.getElementById('team').value.trim();
+    let unitVal = parseInt(document.getElementById('unit').value);
+    
+    // 修复：改用 parseFloat
+    START = Math.round(parseFloat(document.getElementById('start').value) * unitVal);
+    END = Math.round(parseFloat(document.getElementById('end').value) * unitVal);
+    
+    if (START >= END) { alert("起始值必须小于结束值！"); isRunning = false; return; }
+
+    th_e8 = parseInt(document.getElementById('th_eight').value) || 755;
+    th_s7 = parseInt(document.getElementById('th_seven').value) || 655;
+    th_gor = parseInt(document.getElementById('th_gor').value) || 90;
+
+    window.t0 = performance.now();
+    window.totalCount = END - START;
+    threadProgress = new Array(8).fill(0);
+
+    let numThreads = 8;
+    let chunkSize = Math.ceil((END - START) / numThreads);
+    let finishedThreads = 0;
+
+    for(let i = 0; i < numThreads; i++) {
+        let start = START + i * chunkSize;
+        let end = Math.min(START + (i + 1) * chunkSize - 1, END);
+        if(start > end) { finishedThreads++; continue; }
+
+        let worker = new Worker(workerUrl);
+        let idx = i;
+
+        worker.onmessage = function(e) {
+            let data = e.data;
+            if (data.type === 'exciting') {
+                logExciting(data.name, data.e8, data.s7, data.gor);
+            } else if (data.type === 'progress') {
+                // 修复：用直接覆盖，杜绝负数
+                threadProgress[idx] = data.count;
+                mergeWorkerData(data);
+                updateUI();
+            } else if (data.type === 'done') {
+                finishedThreads++;
+                threadProgress[idx] = data.count;
+                mergeWorkerData(data);
+                worker.terminate();
+                if (finishedThreads === numThreads) { updateUI(); finish(); }
+            }
+        };
+        
+        worker.postMessage({ start: start, end: end, prefix: PREFIX_STR, team: TEAM_STR, th_e8: th_e8, th_s7: th_s7, th_gor: th_gor });
+    }
+}
+
+function logExciting(name, e8, s7, gor) {
+    let box = document.getElementById('excitingNews'); let list = document.getElementById('newsList');
+    box.style.display = 'block';
+    let tag = "";
+    if (gor >= th_gor) tag += "<span style='color:#dc3545;font-weight:bold;'>[华丽]</span> ";
+    if (s7 >= th_s7) tag += "<span style='color:#dc3545;font-weight:bold;'>[七围]</span> ";
+    if (e8 >= th_e8) tag += "<span style='color:#dc3545;font-weight:bold;'>[八围]</span> ";
+    let item = document.createElement('div'); item.className = 'news-item';
+    item.innerHTML = tag + name + " | 八围:" + e8.toFixed(2) + " 七围:" + s7 + " 华丽:" + gor;
+    if (list.firstChild) list.insertBefore(item, list.firstChild); else list.appendChild(item);
+    if (list.childNodes.length > 30) list.removeChild(list.lastChild);
+}
+
+function finish() {
+    isRunning = false;
+    document.getElementById('runBtn').disabled = false;
+    document.getElementById('progressBar').style.width = '100%';
+    document.getElementById('statusText').innerText = `测算完成！`;
+    document.getElementById('timeText').innerText = `总计耗时: ${((performance.now() - window.t0) / 1000).toFixed(2)} 秒。`;
+
+    let text = "【八围最高】\n";
+    for (let item of maxE8.list) text += `   ${item.name} | HP:${item.hp} 攻:${item.atk} 防:${item.def} 速:${item.spd} 敏:${item.agi} 魔:${item.mag} 抗:${item.res} 智:${item.intel} | 八围:${item.e8.toFixed(2)} | 七围:${item.s7} | 华丽:${item.gor}\n`;
+    text += "\n【七围最高】\n";
+    for (let item of maxS7.list) text += `   ${item.name} | HP:${item.hp} 攻:${item.atk} 防:${item.def} 速:${item.spd} 敏:${item.agi} 魔:${item.mag} 抗:${item.res} 智:${item.intel} | 八围:${item.e8.toFixed(2)} | 七围:${item.s7} | 华丽:${item.gor}\n`;
+    text += "\n【华丽最高】\n";
+    for (let item of maxGor.list) text += `   ${item.name} | HP:${item.hp} 攻:${item.atk} 防:${item.def} 速:${item.spd} 敏:${item.agi} 魔:${item.mag} 抗:${item.res} 智:${item.intel} | 八围:${item.e8.toFixed(2)} | 七围:${item.s7} | 华丽:${item.gor}\n`;
+
+    document.getElementById('copyArea').value = text;
+    document.getElementById('copyArea').style.display = 'block';
+}
+</script>
 </body>
 </html>
