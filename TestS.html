@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>前置锁定全才号测试 (8线程双模式版)</title>
+<style>
+body { font-family: sans-serif; padding: 10px; background: #f4f4f9; margin: 0; }
+.container { max-width: 600px; margin: 0 auto; background: #fff; padding: 15px; border-radius: 8px; }
+.form-group { margin-bottom: 10px; }
+.form-group label { display: block; margin-bottom: 3px; font-weight: bold; font-size: 13px; }
+.form-group input, .form-group select { width: 100%; padding: 6px; box-sizing: border-box; font-size: 14px; }
+.row { display: flex; gap: 10px; }
+.row > div { flex: 1; }
+.coeff-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 15px; background: #f8f9fa; padding: 10px; border-radius: 6px; border: 1px solid #ddd; }
+.coeff-item label { font-size: 12px; color: #555; text-align: center; display: block; }
+.coeff-item input { text-align: center; padding: 4px; font-size: 13px; }
+.coeff-item.skill-weight { grid-column: span 3; background: #fff3cd; padding: 4px; border-radius: 4px; }
+
+/* 新增单项阈值网格 */
+.threshold-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 15px; }
+.threshold-item label { font-size: 12px; color: #555; text-align: center; display: block; }
+.threshold-item input { text-align: center; padding: 4px; font-size: 13px; background: #fff; border: 1px solid #17a2b8; }
+
+button { width: 100%; padding: 12px; background: #28a745; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; font-weight: bold; margin-top: 5px; }
+button:disabled { background: #6c757d; }
+.copy-btn { background: #007bff; margin-top: 10px; }
+
+#log { height: 120px; overflow-y: auto; background: #111; color: #0f0; padding: 8px; font-family: monospace; margin-top: 10px; border-radius: 4px; white-space: pre-wrap; font-size: 12px; }
+textarea { width: 100%; height: 100px; font-family: monospace; font-size: 12px; padding: 6px; box-sizing: border-box; background: #fafafa; }
+.box-header { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; margin-bottom: 5px; }
+.btn-group { display: flex; gap: 8px; }
+.btn-small { width: auto; padding: 4px 10px; font-size: 12px; border-radius: 4px; margin-top: 0; }
+
+#skillSelectBox { background: #e9ecef; padding: 10px; border-radius: 6px; margin-bottom: 15px; border: 1px solid #17a2b8; }
+.skill-checkbox-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; max-height: 150px; overflow-y: auto; }
+.skill-checkbox-grid label { font-size: 13px; display: flex; align-items: center; gap: 4px; background: #fff; padding: 4px; border-radius: 4px; cursor: pointer; border: 1px solid #ccc; }
+
+.switch-container { display: flex; align-items: center; gap: 10px; margin-top: 10px; background: #e9ecef; padding: 8px; border-radius: 4px; border: 1px solid #ccc; margin-bottom: 10px; }
+.switch-label { font-size: 14px; font-weight: bold; color: #333; cursor: pointer; }
+input[type="checkbox"] { width: 20px; height: 20px; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="container">
+    <h2>前置全才号 (8线程双模式)</h2>
+    
+    <div class="box-header">
+        <div style="font-weight:bold; font-size:14px;">【可选】历史数据</div>
+        <div class="btn-group">
+            <button type="button" class="btn-small" style="background:#17a2b8;" onclick="pasteHistory()">粘贴</button>
+            <button type="button" class="btn-small" style="background:#dc3545;" onclick="clearHistory()">清空</button>
+        </div>
+    </div>
+    <textarea id="oldData" placeholder="粘贴以前生成的txt报告内容..."></textarea>
+
+    <div id="skillSelectBox">
+        <div style="font-weight:bold; color:#17a2b8; margin-bottom:8px;">第1步：请先勾选你需要的强技能（须同时满足）</div>
+        <div class="skill-checkbox-grid" id="skillCheckboxes"></div>
+    </div>
+
+    <div class="row" style="margin-top:10px;">
+        <div class="form-group">
+            <label>前缀</label>
+            <input type="text" id="prefix" value="HYY">
+        </div>
+        <div class="form-group">
+            <label>战队名</label>
+            <input type="text" id="team" value="HYWZ">
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="form-group">
+            <label>八围总阈值 (填0或留空不限制)</label>
+            <input type="number" id="eightThresh" value="580">
+        </div>
+        <div class="form-group">
+            <label>强技能门槛</label>
+            <input type="number" id="skillThresh" value="35">
+        </div>
+    </div>
+
+    <label style="font-weight:bold; font-size:13px; display:block; margin-bottom:5px; color:#17a2b8;">单项八围阈值 (留空即不限制)</label>
+    <div class="threshold-grid">
+        <div class="threshold-item"><label>HP</label><input type="number" id="th_hp" placeholder="留空"></div>
+        <div class="threshold-item"><label>攻</label><input type="number" id="th_atk" placeholder="留空"></div>
+        <div class="threshold-item"><label>防</label><input type="number" id="th_def" placeholder="留空"></div>
+        <div class="threshold-item"><label>速</label><input type="number" id="th_spd" placeholder="留空"></div>
+        <div class="threshold-item"><label>敏</label><input type="number" id="th_agi" placeholder="留空"></div>
+        <div class="threshold-item"><label>魔</label><input type="number" id="th_mag" placeholder="留空"></div>
+        <div class="threshold-item"><label>抗</label><input type="number" id="th_res" placeholder="留空"></div>
+        <div class="threshold-item"><label>智</label><input type="number" id="th_int" placeholder="留空"></div>
+    </div>
+
+    <div class="switch-container">
+        <input type="checkbox" id="enableZCF" checked>
+        <label for="enableZCF" class="switch-label">启用 ZCF 公式计分排序</label>
+    </div>
+
+    <div class="coeff-grid" id="zcfPanel">
+        <div class="coeff-item"><label>HP</label><input type="number" id="c_hp" value="0.4" step="0.1"></div>
+        <div class="coeff-item"><label>攻</label><input type="number" id="c_atk" value="1" step="0.1"></div>
+        <div class="coeff-item"><label>防</label><input type="number" id="c_def" value="1" step="0.1"></div>
+        <div class="coeff-item"><label>速</label><input type="number" id="c_spd" value="1" step="0.1"></div>
+        <div class="coeff-item"><label>敏</label><input type="number" id="c_agi" value="1" step="0.1"></div>
+        <div class="coeff-item"><label>魔</label><input type="number" id="c_mag" value="1.2" step="0.1"></div>
+        <div class="coeff-item"><label>抗</label><input type="number" id="c_res" value="1.1" step="0.1"></div>
+        <div class="coeff-item"><label>智</label><input type="number" id="c_int" value="1" step="0.1"></div>
+        <div class="coeff-item skill-weight"><label>熟练度权重</label><input type="number" id="c_skill" value="1.45" step="0.1"></div>
+    </div>
+
+    <div class="row">
+        <div class="form-group">
+            <label>测试单位</label>
+            <select id="unit">
+                <option value="100000">10w</option>
+                <option value="1000000">100w</option>
+                <option value="10000000">1000w</option>
+                <option value="100000000">10000w</option>
+                <option value="1000000000">100000w</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>步长 (Pace)</label>
+            <input type="number" id="pace" value="1000000">
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="form-group">
+            <label>起始值</label>
+            <input type="number" id="start" value="0" step="0.1">
+        </div>
+        <div class="form-group">
+            <label>结束值</label>
+            <input type="number" id="end" value="1" step="0.1">
+        </div>
+    </div>
+    
+    <button id="runBtn" onclick="startTest()">第2步：确认技能并开始测试</button>
+    <div id="log">准备就绪...</div>
+    
+    <div id="resultBox" style="display:none; margin-top:15px;">
+        <div style="font-weight:bold; color:#28a745;">生成结果 (请点击复制)</div>
+        <textarea id="resultText" style="height: 250px; background: #f0fff0;" readonly></textarea>
+        <button class="copy-btn" onclick="copyText()">一键复制报告</button>
+    </div>
+</div>
+
+<script>
+var SKILL_NAMES = ["火球","冰冻","雷击","地裂","吸血","投毒","连击","会心","瘟疫","命轮","狂暴","魅惑","加速","减速","诅咒","治愈","苏生","净化","铁壁","蓄力","聚气","潜行","血祭","分身","幻术","防御","守护","反弹","护符","护盾","反击","吞噬","亡灵","垂死","隐匿","啧","啧","啧","啧","啧"];
+
+var allStrongResults = [];
+var loadedHistoryResults = []; 
+var finalStart = 0, finalEnd = 0;
+
+window.onload = function() {
+    var box = document.getElementById('skillCheckboxes');
+    for (var i = 0; i < 35; i++) { 
+        var label = document.createElement('label');
+        var chk = document.createElement('input');
+        chk.type = 'checkbox';
+        chk.value = i;
+        chk.id = 'chk_' + i;
+        label.appendChild(chk);
+        label.appendChild(document.createTextNode(SKILL_NAMES[i]));
+        box.appendChild(label);
+    }
+};
+
+document.getElementById('enableZCF').onchange = function() {
+    document.getElementById('zcfPanel').style.display = this.checked ? 'grid' : 'none';
+};
+
+function clearHistory() { document.getElementById('oldData').value = ""; }
+async function pasteHistory() {
+    try {
+        var text = await navigator.clipboard.readText();
+        if (text) document.getElementById('oldData').value = text;
+    } catch (err) { alert("请长按文本框手动粘贴。"); }
+}
+
+function log(msg, isError) {
+    var logEl = document.getElementById('log');
+    var color = isError ? "color: #f44;" : "";
+    logEl.innerHTML += "<div style='" + color + "'>" + msg + "</div>";
+    logEl.scrollTop = logEl.scrollHeight;
+}
+
+// ==================== Worker 核心代码 ====================
+const workerCode = `
+var _nk = new Uint8Array(256);
+var _S = new Uint8Array(256);
+var _base = new Int32Array(128);
+var _arr = new Int32Array(10);
+var _skl_id = new Int32Array(40);
+var _freq = new Int32Array(40);
+var _stats = new Int32Array(8);
+var _tmpArr = new Uint8Array(24);
+var _isTarget = new Uint8Array(40);
+var targetSkills = [];
+var targetCount = 0;
+var th_single = new Int32Array(8); // 接收单项阈值
+
+function utf8Encode(str) {
+    var arr = [];
+    for (var i = 0; i < str.length; i++) {
+        var c = str.charCodeAt(i);
+        if (c < 0x80) arr.push(c);
+        else if (c < 0x800) arr.push(0xc0 | (c >> 6), 0x80 | (c & 0x3f));
+        else if (c < 0xd800 || c >= 0xe000) arr.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 0x3f), 0x80 | (c & 0x3f));
+        else {
+            i++;
+            c = 0x10000 + (((c & 0x3ff) << 10) | (str.charCodeAt(i) & 0x3ff));
+            arr.push(0xf0 | (c >> 18), 0x80 | ((c >> 12) & 0x3f), 0x80 | ((c >> 6) & 0x3f), 0x80 | (c & 0x3f));
+        }
+    }
+    return new Uint8Array(arr);
+}
+
+function median3(a, b, c) {
+    var tmp;
+    if (a > b) { tmp = a; a = b; b = tmp; }
+    if (b > c) { tmp = b; b = c; c = tmp; }
+    if (a > b) { tmp = a; a = b; b = tmp; }
+    return b;
+}
+
+function checkAndCalc(nameBuf, nLen, S_team, minSkillFreq, eightThresh) {
+    var kl = nLen + 1;
+    _nk[0] = 0;
+    for (var i = 0; i < nLen; i++) _nk[i + 1] = nameBuf[i];
+
+    _S.set(S_team);
+    
+    var j = 0, kIdx = 0;
+    for (var i = 0; i < 256; i++) {
+        j = (j + _S[i] + _nk[kIdx]) & 0xFF;
+        var tmp = _S[i]; _S[i] = _S[j]; _S[j] = tmp;
+        kIdx++; if (kIdx >= kl) kIdx = 0;
+    }
+    j = 0; kIdx = 0;
+    for (var i = 0; i < 256; i++) {
+        j = (j + _S[i] + _nk[kIdx]) & 0xFF;
+        var tmp = _S[i]; _S[i] = _S[j]; _S[j] = tmp;
+        kIdx++; if (kIdx >= kl) kIdx = 0;
+    }
+
+    var cnt = 0;
+    for (var i = 0; i < 256; i++) {
+        var m = (_S[i] * 181 + 160) & 0xFF;
+        if (m >= 89 && m < 217) {
+            _base[cnt] = m & 63;
+            cnt++;
+            if (cnt === 128) break;
+        }
+    }
+
+    for (var i = 0; i < 10; i++) _arr[i] = _base[i];
+    for (var i = 1; i < 10; i++) {
+        var key = _arr[i];
+        var k = i - 1;
+        while (k >= 0 && _arr[k] > key) { _arr[k + 1] = _arr[k]; k--; }
+        _arr[k + 1] = key;
+    }
+
+    _stats[0] = 154 + _arr[3] + _arr[4] + _arr[5] + _arr[6];
+    _stats[1] = median3(_base[10], _base[11], _base[12]) + 36;
+    _stats[2] = median3(_base[13], _base[14], _base[15]) + 36;
+    _stats[3] = median3(_base[16], _base[17], _base[18]) + 36;
+    _stats[4] = median3(_base[19], _base[20], _base[21]) + 36;
+    _stats[5] = median3(_base[22], _base[23], _base[24]) + 36;
+    _stats[6] = median3(_base[25], _base[26], _base[27]) + 36;
+    _stats[7] = median3(_base[28], _base[29], _base[30]) + 36;
+
+    // 【安全智能剪枝 1】：八围单项阈值判定
+    for (var i = 0; i < 8; i++) {
+        // 如果 th_single[i] 不是 -1（即有填值），且实际属性小于阈值，直接斩杀
+        if (th_single[i] !== -1 && _stats[i] < th_single[i]) return null;
+    }
+
+    var e8 = (_stats[0] / 3.0) + _stats[1] + _stats[2] + _stats[3] + _stats[4] + _stats[5] + _stats[6] + _stats[7];
+    if (e8 < eightThresh) return null;
+
+    // 【安全智能剪枝 2】：预判全部 16 个技能的潜力（包含翻倍和特判）
+    var hasPotential = false;
+    var p14 = Math.min(_base[120], _base[121], _base[122], _base[123]);
+    var f14 = p14 > 10 ? p14 - 10 : 0;
+    var max14 = f14 + Math.min(_base[60], _base[61]);
+
+    var p15 = Math.min(_base[124], _base[125], _base[126], _base[127]);
+    var f15 = p15 > 10 ? p15 - 10 : 0;
+    var max15 = f15 + Math.min(_base[62], _base[63]);
+
+    for (var jj = 0; jj < 16; jj++) {
+        if (jj === 14 && _isTarget[14] && max14 >= minSkillFreq) { hasPotential = true; break; }
+        if (jj === 15 && _isTarget[15] && max15 >= minSkillFreq) { hasPotential = true; break; }
+
+        var idx = 64 + jj * 4;
+        var p = _base[idx];
+        if (_base[idx+1] < p) p = _base[idx+1];
+        if (_base[idx+2] < p) p = _base[idx+2];
+        if (_base[idx+3] < p) p = _base[idx+3];
+        
+        if (p > 10) {
+            if (p - 10 >= minSkillFreq) { hasPotential = true; break; }
+            if (p < 35 && (p - 10) * 2 >= minSkillFreq) { hasPotential = true; break; }
+        }
+    }
+    if (!hasPotential) return null;
+
+    for (var i = 0; i < 40; i++) _skl_id[i] = i;
+    var a = 0, b = 0, s = 0;
+    for (var r = 0; r < 2; r++) {
+        for (var i = 0; i < 40; i++) {
+            a += 1; b = (b + _S[a]) & 0xFF;
+            var tmp1 = _S[a]; _S[a] = _S[b]; _S[b] = tmp1;
+            var u = _S[(_S[a] + _S[b]) & 0xFF];
+            a += 1; b = (b + _S[a]) & 0xFF;
+            var tmp2 = _S[a]; _S[a] = _S[b]; _S[b] = tmp2;
+            var t_val = _S[(_S[a] + _S[b]) & 0xFF];
+            var rnd = ((u << 8) | t_val) % 40;
+            s = (s + rnd + _skl_id[i]) % 40;
+            var tmpSkl = _skl_id[i]; _skl_id[i] = _skl_id[s]; _skl_id[s] = tmpSkl;
+        }
+    }
+
+    for (var i = 0; i < 40; i++) _freq[i] = 0;
+    var last = -1;
+    for (var j = 0; j < 16; j++) {
+        var i = 64 + j * 4;
+        var p = _base[i];
+        if (_base[i+1] < p) p = _base[i+1];
+        if (_base[i+2] < p) p = _base[i+2];
+        if (_base[i+3] < p) p = _base[i+3];
+        
+        if (p > 10 && _skl_id[j] < 35) {
+            _freq[j] = p - 10;
+            if (p < 35) last = j;
+        }
+    }
+
+    if (last === -1) {
+        if (_freq[14] > 0) { var m = _base[60] < _base[61] ? _base[60] : _base[61]; _freq[14] += (_freq[14] < m ? _freq[14] : m); }
+        if (_freq[15] > 0) { var m = _base[62] < _base[63] ? _base[62] : _base[63]; _freq[15] += (_freq[15] < m ? _freq[15] : m); }
+    } else if (last === 14) {
+        _freq[14] <<= 1;
+        if (_freq[15] > 0) { var m = _base[62] < _base[63] ? _base[62] : _base[63]; _freq[15] += (_freq[15] < m ? _freq[15] : m); }
+    } else if (last === 15) {
+        _freq[15] <<= 1;
+        if (_freq[14] > 0) { var m = _base[60] < _base[61] ? _base[60] : _base[61]; _freq[14] += (_freq[14] < m ? _freq[14] : m); }
+    } else {
+        _freq[last] <<= 1;
+        if (_freq[14] > 0) { var m = _base[60] < _base[61] ? _base[60] : _base[61]; _freq[14] += (_freq[14] < m ? _freq[14] : m); }
+        if (_freq[15] > 0) { var m = _base[62] < _base[63] ? _base[62] : _base[63]; _freq[15] += (_freq[15] < m ? _freq[15] : m); }
+    }
+
+    var matchedFreqs = [];
+    var matchCount = 0;
+    for (var k = 0; k < 40; k++) {
+        var id = _skl_id[k];
+        if (_isTarget[id]) {
+            var f = _freq[k];
+            if (f < minSkillFreq) return null; 
+            matchedFreqs.push({ id: id, freq: f });
+            matchCount++;
+            if (matchCount === targetCount) break; 
+        }
+    }
+
+    return { stats: Array.from(_stats), e8: e8, skillFreqs: matchedFreqs };
+}
+
+function writeNumToNameBuf(n, startOffset, buf) {
+    if (n === 0) { buf[startOffset] = 48; return 1; }
+    var temp = n, len = 0;
+    while (temp > 0) {
+        _tmpArr[len] = (temp % 10) + 48;
+        len++;
+        temp = (temp / 10) | 0;
+    }
+    for (var i = 0; i < len; i++) buf[startOffset + i] = _tmpArr[len - 1 - i];
+    return len;
+}
+
+self.onmessage = function(e) {
+    let d = e.data;
+    let START = d.start;
+    let END = d.end;
+    let prefix = d.prefix;
+    let team = d.team;
+    let eightThresh = d.eightThresh;
+    let skillThresh = d.skillThresh;
+    let paceVal = d.paceVal;
+    th_single = d.th_single; // 接收单项阈值数组
+
+    targetSkills = d.targetSkills;
+    targetCount = targetSkills.length;
+    _isTarget.fill(0);
+    for (let i = 0; i < targetCount; i++) _isTarget[targetSkills[i]] = 1;
+
+    let teamBuf = utf8Encode(team);
+    let tk = new Uint8Array(256);
+    tk[0] = 0;
+    for (let i = 0; i < teamBuf.length; i++) tk[i + 1] = teamBuf[i];
+
+    let S_team = new Uint8Array(256);
+    for (let i = 0; i < 256; i++) S_team[i] = i;
+    
+    let j = 0, kIdx = 0;
+    let tkl = teamBuf.length + 1;
+    for (let i = 0; i < 256; i++) {
+        j = (j + S_team[i] + tk[kIdx]) & 0xFF;
+        let tmp = S_team[i]; S_team[i] = S_team[j]; S_team[j] = tmp;
+        kIdx++; if (kIdx >= tkl) kIdx = 0;
+    }
+
+    let prefixBuf = utf8Encode(prefix);
+    let plen = prefixBuf.length;
+    let nameBuf = new Uint8Array(256);
+    nameBuf.set(prefixBuf);
+
+    let localResults = [];
+    let pcount = 0;
+    let teamAt = "@" + team;
+
+    for (let n = START; n <= END; n++) {
+        let nLen = writeNumToNameBuf(n, plen, nameBuf);
+        let res = checkAndCalc(nameBuf, plen + nLen, S_team, skillThresh, eightThresh);
+
+        if (res !== null) {
+            let fullName = prefix + n.toString() + teamAt;
+            localResults.push({
+                name: fullName,
+                s0: res.stats[0], s1: res.stats[1], s2: res.stats[2], s3: res.stats[3],
+                s4: res.stats[4], s5: res.stats[5], s6: res.stats[6], s7: res.stats[7],
+                eight_sum: res.e8, skillFreqs: res.skillFreqs
+            });
+        }
+
+        pcount++;
+        if (pcount === paceVal) {
+            pcount = 0;
+            self.postMessage({ type: 'progress', count: paceVal, results: localResults });
+            localResults = []; 
+        }
+    }
+
+    self.postMessage({ type: 'done', count: pcount, results: localResults });
+};
+`;
+
+const workerBlob = new Blob([workerCode], { type: 'application/javascript' });
+const workerUrl = URL.createObjectURL(workerBlob);
+
+// ==================== 主线程逻辑 ====================
+
+async function startTest() {
+    var selectedIds = [];
+    for (var i = 0; i < 35; i++) {
+        var chk = document.getElementById('chk_' + i);
+        if (chk && chk.checked) selectedIds.push(i);
+    }
+    if (selectedIds.length === 0) { alert("请先勾选至少一个需要的强技能！"); return; }
+
+    var btn = document.getElementById('runBtn');
+    btn.disabled = true;
+    document.getElementById('log').innerHTML = "开始处理...";
+    document.getElementById('resultBox').style.display = 'none';
+    
+    allStrongResults = [];
+    loadedHistoryResults = [];
+
+    try {
+        var prefix = document.getElementById('prefix').value.trim();
+        var team = document.getElementById('team').value.trim();
+        var eightThresh = parseFloat(document.getElementById('eightThresh').value) || 0;
+        var skillThresh = parseFloat(document.getElementById('skillThresh').value) || 35;
+        
+        // 提取单项阈值
+        var th_ids = ["th_hp", "th_atk", "th_def", "th_spd", "th_agi", "th_mag", "th_res", "th_int"];
+        var th_single = new Int32Array(8);
+        for(var i=0; i<8; i++) {
+            var val = document.getElementById(th_ids[i]).value.trim();
+            th_single[i] = val === "" ? -1 : (parseInt(val) || -1);
+        }
+
+        var unit = parseInt(document.getElementById('unit').value);
+        var startIn = parseFloat(document.getElementById('start').value);
+        var endIn = parseFloat(document.getElementById('end').value);
+        var paceVal = parseInt(document.getElementById('pace').value) || 1000000;
+        var oldDataText = document.getElementById('oldData').value.trim();
+
+        if (!prefix || !team) throw new Error("前缀和战队不能为空！");
+
+        var START = Math.round(startIn * unit);
+        var END = Math.round(endIn * unit);
+        finalStart = START;
+        finalEnd = END;
+
+        if (START < 0 || END < START) throw new Error("区间不合法！");
+
+        if (oldDataText) {
+            log("【合并】提取历史数据...");
+            var rM = oldDataText.match(/(?:并集区间|本次范围):\s*(\d+)\s*~\s*(\d+)/);
+            if (rM) {
+                var rs = parseInt(rM[1]);
+                var re = parseInt(rM[2]);
+                if (rs < finalStart) finalStart = rs;
+                if (re > finalEnd) finalEnd = re;
+            }
+            
+            var tempHistMap = new Map();
+            var lines = oldDataText.split('\n');
+            for (var k = 0; k < lines.length; k++) {
+                var line = lines[k];
+                if (line.startsWith('[') && line.includes('|')) {
+                    var p0 = line.split('|')[0].trim();
+                    var idx = p0.indexOf(']');
+                    if (idx > 0) {
+                        var sName = p0.substring(1, idx);
+                        var sId = SKILL_NAMES.indexOf(sName);
+                        var name = p0.substring(idx+1).trim();
+                        
+                        var hpM = line.match(/HP:\s*(\d+)\s*攻:\s*(\d+)\s*防:\s*(\d+)\s*速:\s*(\d+)\s*敏:\s*(\d+)\s*魔:\s*(\d+)\s*抗:\s*(\d+)\s*智:\s*(\d+)/);
+                        var freqM = line.match(/(?:熟练|最高):\s*(\d+)/);
+                        var e8M = line.match(/八围:\s*([\d.]+)/);
+
+                        if (hpM && freqM && e8M && sId >= 0) {
+                            var stats = [];
+                            for(var i=1; i<=8; i++) stats.push(parseInt(hpM[i]));
+                            var freq = parseInt(freqM[1]);
+                            var e8 = parseFloat(e8M[1]);
+                            
+                            if (!tempHistMap.has(name)) {
+                                tempHistMap.set(name, {
+                                    name: name, s0: stats[0], s1: stats[1], s2: stats[2], s3: stats[3],
+                                    s4: stats[4], s5: stats[5], s6: stats[6], s7: stats[7],
+                                    eight_sum: e8, skillFreqs: []
+                                });
+                            }
+                            tempHistMap.get(name).skillFreqs.push({id: sId, freq: freq});
+                        }
+                    }
+                }
+            }
+            loadedHistoryResults = Array.from(tempHistMap.values());
+            log("【合并】历史数据导入完成，共 " + loadedHistoryResults.length + " 个不同名字。");
+        }
+
+        log("锁定技能: " + selectedIds.map(function(id){ return SKILL_NAMES[id]; }).join(" + "));
+        log("区间: [" + START + ", " + END + "] 覆盖: [" + finalStart + ", " + finalEnd + "]");
+
+        var t0 = performance.now();
+        var totalCount = END - START + 1;
+        var numThreads = 8;
+        var chunkSize = Math.ceil(totalCount / numThreads);
+        
+        var currentTotal = 0;
+        var finishedThreads = 0;
+        var lastLogTime = performance.now();
+
+        for (let i = 0; i < numThreads; i++) {
+            let start = START + i * chunkSize;
+            let end = Math.min(START + (i + 1) * chunkSize - 1, END);
+            if (start > end) { finishedThreads++; continue; }
+
+            let worker = new Worker(workerUrl);
+            
+            worker.onmessage = function(e) {
+                let data = e.data;
+                
+                if (data.type === 'progress') {
+                    currentTotal += data.count;
+                    if (data.results) {
+                        allStrongResults = allStrongResults.concat(data.results);
+                    }
+                    
+                    let now = performance.now();
+                    if (now - lastLogTime > 300) {
+                        lastLogTime = now;
+                        let elSec = (now - t0) / 1000;
+                        let speed = Math.round(currentTotal / elSec);
+                        let showTotal = Math.min(currentTotal, totalCount); 
+                        log("进度: " + showTotal + "/" + totalCount + " | 全才号: " + allStrongResults.length + " | 速度: " + speed + " 号/秒");
+                    }
+                }
+                
+                if (data.type === 'done') {
+                    currentTotal += data.count;
+                    if (data.results) {
+                        allStrongResults = allStrongResults.concat(data.results);
+                    }
+                    finishedThreads++;
+                    worker.terminate();
+                    
+                    if (finishedThreads === numThreads) {
+                        let elSec = (performance.now() - t0) / 1000;
+                        log("进度: " + totalCount + "/" + totalCount + " | 全才号: " + allStrongResults.length + " | 速度: " + Math.round(totalCount / elSec) + " 号/秒");
+                        log("生成完毕，本次共找到 " + allStrongResults.length + " 个全才号。");
+                        
+                        showResults(selectedIds);
+                        btn.disabled = false;
+                    }
+                }
+            };
+            
+            worker.postMessage({
+                start: start,
+                end: end,
+                prefix: prefix,
+                team: team,
+                eightThresh: eightThresh,
+                skillThresh: skillThresh,
+                targetSkills: selectedIds,
+                paceVal: paceVal,
+                th_single: th_single // 传递单项阈值
+            });
+        }
+
+    } catch (err) {
+        log("【崩溃】" + err.message, true);
+        document.getElementById('runBtn').disabled = false;
+    }
+}
+
+function showResults(selectedIds) {
+    var useZCF = document.getElementById('enableZCF').checked;
+    var coeffs = [
+        parseFloat(document.getElementById('c_hp').value) || 0,
+        parseFloat(document.getElementById('c_atk').value) || 0,
+        parseFloat(document.getElementById('c_def').value) || 0,
+        parseFloat(document.getElementById('c_spd').value) || 0,
+        parseFloat(document.getElementById('c_agi').value) || 0,
+        parseFloat(document.getElementById('c_mag').value) || 0,
+        parseFloat(document.getElementById('c_res').value) || 0,
+        parseFloat(document.getElementById('c_int').value) || 0,
+        parseFloat(document.getElementById('c_skill').value) || 0
+    ];
+
+    var prefix = document.getElementById('prefix').value.trim();
+    var team = document.getElementById('team').value.trim();
+    var teamAt = "@" + team;
+
+    var resultMap = new Map();
+    var pool = allStrongResults.concat(loadedHistoryResults);
+
+    for (var i = 0; i < pool.length; i++) {
+        var r = pool[i];
+        var isMatch = true;
+        var totalSkillScore = 0;
+        var matchedFreqs = [];
+
+        for (var j = 0; j < selectedIds.length; j++) {
+            var sId = selectedIds[j];
+            var foundFreq = 0;
+            
+            for (var k = 0; k < r.skillFreqs.length; k++) {
+                if (r.skillFreqs[k].id === sId) {
+                    foundFreq = r.skillFreqs[k].freq;
+                    break;
+                }
+            }
+            
+            if (foundFreq === 0) {
+                isMatch = false;
+                break;
+            }
+            
+            totalSkillScore += foundFreq * coeffs[8];
+            matchedFreqs.push({ id: sId, freq: foundFreq });
+        }
+
+        if (isMatch) {
+            var zcf = 0;
+            if (useZCF) {
+                zcf = r.s0*coeffs[0] + r.s1*coeffs[1] + r.s2*coeffs[2] + r.s3*coeffs[3];
+                zcf += r.s4*coeffs[4] + r.s5*coeffs[5] + r.s6*coeffs[6] + r.s7*coeffs[7];
+                zcf += totalSkillScore;
+            }
+            
+            var obj = {
+                name: r.name,
+                s0: r.s0, s1: r.s1, s2: r.s2, s3: r.s3,
+                s4: r.s4, s5: r.s5, s6: r.s6, s7: r.s7,
+                eight_sum: r.eight_sum, 
+                skillFreqs: matchedFreqs,
+                score: zcf
+            };
+            
+            if (!resultMap.has(r.name) || (useZCF && resultMap.get(r.name).score < zcf)) {
+                resultMap.set(r.name, obj);
+            }
+        }
+    }
+
+    var results = Array.from(resultMap.values());
+    if (useZCF) {
+        results.sort(function(a, b) { return b.score - a.score; });
+    }
+
+    var namesStr = selectedIds.map(function(id){ return SKILL_NAMES[id]; }).join(" + ");
+
+    var fileContent = "========================================\n";
+    fileContent += "全才号测试结果 (8线程" + (useZCF ? "公式排序版" : "阈值版") + ")\n";
+    fileContent += "========================================\n";
+    fileContent += "前缀: " + prefix + " 战队: " + teamAt + "\n";
+    fileContent += "筛选技能(须同时具备): " + namesStr + "\n";
+    fileContent += "并集区间: " + finalStart + " ~ " + finalEnd + "\n";
+    fileContent += "达标数量: " + results.length + " 个\n";
+    fileContent += "========================================\n\n";
+
+    if (results.length === 0) {
+        fileContent += "没有找到同时满足这些技能条件的号。\n";
+    } else {
+        for (var i=0; i<results.length; i++) {
+            var e = results[i];
+            var skillTags = [];
+            for (var j=0; j<e.skillFreqs.length; j++) {
+                skillTags.push(SKILL_NAMES[e.skillFreqs[j].id] + ":" + e.skillFreqs[j].freq);
+            }
+            
+            var str = "[" + skillTags.join(", ") + "] " + e.name;
+            if (useZCF) str += " | ZCF:" + e.score.toFixed(2);
+            str += " | HP:" + e.s0 + " 攻:" + e.s1 + " 防:" + e.s2 + " 速:" + e.s3;
+            str += " 敏:" + e.s4 + " 魔:" + e.s5 + " 抗:" + e.s6 + " 智:" + e.s7;
+            str += " | 八围:" + e.eight_sum.toFixed(2) + "\n";
+            fileContent += str;
+        }
+    }
+
+    document.getElementById('resultText').value = fileContent;
+    document.getElementById('resultBox').style.display = 'block';
+    log("报告生成完毕。");
+}
+
+function copyText() {
+    var textArea = document.getElementById("resultText");
+    textArea.select();
+    try {
+        if (document.execCommand("copy")) {
+            alert("已复制！");
+        } else {
+            alert("自动复制失败，请长按文本框手动复制。");
+        }
+    } catch (err) { 
+        alert("自动复制失败，请长按文本框手动复制。"); 
+    }
+}
+</script>
+</body>
+</html>
