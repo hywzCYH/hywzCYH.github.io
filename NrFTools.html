@@ -1,0 +1,1375 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Namarena 综合工具 (终章版)</title>
+<style>
+    /* ================= 全局主题变量 ================= */
+    :root {
+        --primary-blue: #007bff;
+        --primary-blue-hover: #0056b3;
+        --danger-red: #dc3545;
+        --danger-red-hover: #c82333;
+        --bg-color: #f8f9fa;
+        --box-bg: #ffffff;
+        --text-main: #333333;
+        --text-muted: #6c757d;
+        --border-color: #ced4da;
+        
+        /* 紫色层级：浅紫 -> 中紫 -> 深紫 */
+        --purple-light: #e9d5ff;
+        --purple-mid: #c084fc;
+        --purple-dark: #9333ea;
+    }
+
+    /* 深色模式变量 */
+    body.dark-mode {
+        --primary-blue: #3b82f6;
+        --primary-blue-hover: #2563eb;
+        --danger-red: #ef4444;
+        --danger-red-hover: #dc2626;
+        --bg-color: #0f172a;
+        --box-bg: #1e293b;
+        --text-main: #f1f5f9;
+        --text-muted: #94a3b8;
+        --border-color: #334155;
+        
+        --purple-light: #d8b4fe;
+        --purple-mid: #a855f7;
+        --purple-dark: #7e22ce;
+    }
+
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: var(--bg-color); color: var(--text-main); padding: 10px; margin: 0; transition: background-color 0.3s, color 0.3s; }
+    .container { max-width: 900px; margin: 0 auto; background: var(--box-bg); padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); transition: background-color 0.3s; }
+    
+    /* 导航栏 */
+    .nav-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid var(--border-color); padding-bottom: 10px; }
+    h2 { font-size: 20px; text-align: center; margin: 0; color: var(--primary-blue); }
+    .theme-btn { background: transparent; border: 1px solid var(--border-color); color: var(--text-main); padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 16px; }
+    
+    /* 页面切换 */
+    .page { display: none; }
+    .page.active { display: block; animation: fadeIn 0.3s; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    /* 主页样式 */
+    .home-title { text-align: center; margin: 40px 0; font-size: 28px; color: var(--primary-blue); font-weight: bold; }
+    .home-menu { display: flex; flex-direction: column; gap: 15px; max-width: 400px; margin: 0 auto; }
+    .home-btn { padding: 20px; font-size: 18px; border-radius: 8px; background: var(--box-bg); border: 2px solid var(--primary-blue); color: var(--primary-blue); cursor: pointer; font-weight: bold; transition: all 0.2s; text-align: center; }
+    .home-btn:hover { background: var(--primary-blue); color: #fff; box-shadow: 0 4px 10px rgba(0,123,255,0.3); }
+
+    /* 返回按钮 */
+    .back-btn { background: var(--text-muted); color: #fff; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; }
+    .back-btn:hover { opacity: 0.8; }
+
+    /* 表单区 */
+    .config-section { background: rgba(128,128,128,0.05); padding: 15px; border-radius: 6px; margin-bottom: 15px; border-left: 4px solid var(--primary-blue); }
+    .config-title { font-weight: bold; font-size: 14px; margin-bottom: 10px; color: var(--primary-blue); }
+    .row { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+    .form-group { flex: 1; min-width: 120px; }
+    .form-group label { display: block; font-size: 12px; margin-bottom: 4px; font-weight: bold; }
+    .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 8px; box-sizing: border-box; font-size: 14px; border: 1px solid var(--border-color); border-radius: 4px; outline: none; background: var(--box-bg); color: var(--text-main); }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--primary-blue); }
+
+    /* 按钮 */
+    .btn { padding: 10px 15px; background: var(--primary-blue); color: white; border: none; border-radius: 4px; font-size: 14px; cursor: pointer; font-weight: bold; transition: background 0.2s; width: 100%; }
+    .btn:hover { background: var(--primary-blue-hover); }
+    .btn:disabled { background: #adb5bd; cursor: not-allowed; }
+    .btn-small { width: auto; padding: 5px 10px; font-size: 12px; }
+    .btn-red { background: var(--danger-red); }
+    .btn-red:hover { background: var(--danger-red-hover); }
+    .btn-green { background: #28a745; }
+    .btn-green:hover { background: #218838; }
+
+    /* 结果区 */
+    .result-box { width: 100%; height: 250px; padding: 10px; box-sizing: border-box; border: 1px solid var(--border-color); border-radius: 4px; font-family: monospace; font-size: 13px; resize: vertical; margin-top: 5px; background: rgba(128,128,128,0.05); color: var(--text-main); word-wrap: break-word; white-space: pre-wrap; overflow-x: hidden; }
+    .header-bar { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; margin-bottom: 5px; }
+    .header-title { font-size: 14px; font-weight: bold; color: var(--text-main); }
+
+    /* 进度条与日志 */
+    #progressBarBG { width: 100%; height: 16px; background: rgba(128,128,128,0.2); border-radius: 8px; overflow: hidden; margin-top: 15px; display: none; }
+    #progressBar { width: 0%; height: 100%; background: repeating-linear-gradient(45deg, var(--primary-blue), var(--primary-blue) 10px, var(--primary-blue-hover) 10px, var(--primary-blue-hover) 20px); background-size: 28px 28px; animation: progress-anim 1s linear infinite; transition: width 0.2s; }
+    @keyframes progress-anim { 0% { background-position: 0 0; } 100% { background-position: 28px 0; } }
+    #statusText { font-size: 12px; text-align: center; margin-top: 5px; display: none; font-weight: bold; }
+    
+    #logConsole { display: none; height: 120px; overflow-y: auto; background: #111; color: #0f0; font-family: monospace; font-size: 12px; padding: 8px; border-radius: 4px; margin-top: 10px; border: 1px solid #333; }
+
+    /* 播报区 */
+    #excitingNews { height: 150px; overflow-y: auto; background: rgba(255, 193, 7, 0.15); border: 1px solid #ffc107; padding: 8px; border-radius: 4px; display: none; color: var(--text-main); font-family: monospace; font-size: 12px; margin-top: 15px; word-break: break-all; }
+    .news-item { border-bottom: 1px dashed var(--border-color); padding: 4px 0; }
+    
+    /* 技能列表 */
+    .skill-cat-box { display: none; background: rgba(128,128,128,0.05); border: 1px solid var(--border-color); padding: 10px; border-radius: 4px; margin-top: 10px; }
+    .skill-cat-box.active { display: block; }
+    .skill-cat-title { font-weight: bold; font-size: 13px; margin-bottom: 8px; color: var(--primary-blue); }
+    .skill-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; }
+    .skill-item { display: flex; align-items: center; gap: 4px; font-size: 13px; background: var(--box-bg); padding: 6px; border-radius: 4px; border: 1px solid var(--border-color); }
+    .skill-item input[type="checkbox"] { margin: 0; }
+    .skill-item input[type="number"] { width: 45px; padding: 2px; font-size: 12px; text-align: center; }
+    .skill-item select { width: 60px; padding: 2px; font-size: 12px; }
+
+    /* 紫色高亮层级 */
+    .purple-1 { background-color: var(--purple-light) !important; color: #000 !important; border: 1px solid #fff; }
+    body.dark-mode .purple-1 { border: 1px solid #ffd700; }
+    .purple-2 { background-color: var(--purple-mid) !important; color: #fff !important; border: 1px solid #fff; }
+    body.dark-mode .purple-2 { border: 1px solid #ffd700; }
+    .purple-3 { background-color: var(--purple-dark) !important; color: #fff !important; border: 1px solid #fff; }
+    body.dark-mode .purple-3 { border: 1px solid #ffd700; }
+
+    .hidden-copy { position: absolute; left: -9999px; top: 0; opacity: 0; width: 10px; height: 10px; }
+    
+    /* 战力评测 */
+    .status-bar { background: rgba(0, 123, 255, 0.1); color: var(--primary-blue); padding: 10px; border-radius: 6px; font-size: 13px; margin-bottom: 15px; text-align: center; font-weight: bold; }
+    
+    /* 教程排版 */
+    .tutorial-content { line-height: 1.6; font-size: 14px; }
+    .tutorial-content h3 { color: var(--primary-blue); margin-top: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px; }
+    .tutorial-content p { margin: 8px 0; color: var(--text-main); }
+    .tutorial-content ul { padding-left: 20px; }
+    .tutorial-content li { margin-bottom: 6px; }
+</style>
+</head>
+<body>
+
+<div class="container">
+    
+    <!-- ================= 主页 ================= -->
+    <div id="page-home" class="page active">
+        <div class="nav-header" style="border-bottom: none; margin-bottom: 0;">
+            <div style="width: 60px;"></div>
+            <div class="home-title" style="margin: 0;">Namarena 综合工具</div>
+            <button class="theme-btn" onclick="toggleTheme()">🌓</button>
+        </div>
+        <div class="home-menu" style="margin-top: 40px;">
+            <button class="home-btn" onclick="showPage('page-screen')">🔍 筛号器 (区间变动)</button>
+            <button class="home-btn" onclick="showPage('page-batch')">🧮 测号器 (批量输入)</button>
+            <button class="home-btn" onclick="showPage('page-extract')">🏷️ 识别纯名 (文本提取)</button>
+            <button class="home-btn" onclick="showPage('page-zhanli')">⚔️ 战力评测 (SP-new1)</button>
+            <button class="home-btn" onclick="showPage('page-tutorial')">📖 详细使用教程</button>
+        </div>
+    </div>
+
+    <!-- ================= 筛号器 ================= -->
+    <div id="page-screen" class="page">
+        <div class="nav-header">
+            <button class="back-btn" onclick="showPage('page-home')">⬅ 返回</button>
+            <h2>筛号器</h2>
+            <button class="theme-btn" onclick="toggleTheme()">🌓</button>
+        </div>
+
+        <div class="config-section">
+            <div class="config-title">基础配置</div>
+            <div class="row">
+                <div class="form-group"><label>前缀</label><input type="text" id="s_prefix" value="HYY"></div>
+                <div class="form-group"><label>战队名 (不带@)</label><input type="text" id="s_team" value="HYWZ"></div>
+                <div class="form-group">
+                    <label>线程数</label>
+                    <select id="s_threads">
+                        <option value="8">8 线程 (极速)</option>
+                        <option value="4">4 线程 (省电/兼容)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="row">
+                <div class="form-group"><label>起始号</label><input type="number" id="s_start" value="0" step="0.1"></div>
+                <div class="form-group"><label>结束号</label><input type="number" id="s_end" value="1" step="0.1"></div>
+                <div class="form-group">
+                    <label>单位</label>
+                    <select id="s_unit">
+                        <option value="1000000">100w</option>
+                        <option value="10000000">1000w</option>
+                        <option value="100000000">1E</option>
+                        <option value="1000000000">10E</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="config-section">
+            <div class="config-title">达标区间条件</div>
+            <div class="row">
+                <div class="form-group"><label>区间1(八围 ≥)</label><input type="number" id="s_e8_min1" value="672" step="0.01"></div>
+                <div class="form-group"><label>区间1(八围 ≤)</label><input type="number" id="s_e8_max1" value="691.67" step="0.01"></div>
+                <div class="form-group"><label>区间1(最高技能≥)</label><input type="number" id="s_sk_min1" value="60"></div>
+            </div>
+            <div class="row">
+                <div class="form-group"><label>区间2(八围 ≥)</label><input type="number" id="s_e8_min2" value="692" step="0.01"></div>
+                <div class="form-group"><label>区间2(八围 ≤)</label><input type="number" id="s_e8_max2" value="722" step="0.01"></div>
+                <div class="form-group"><label>区间2(最高技能≥)</label><input type="number" id="s_sk_min2" value="50"></div>
+            </div>
+            <div class="row">
+                <div class="form-group"><label>区间3(八围 ≥)</label><input type="number" id="s_e8_min3" value="722.01" step="0.01"></div>
+                <div class="form-group"><label>区间3(八围 ≤)</label><input type="number" id="s_e8_max3" value="9999" step="0.01"></div>
+                <div class="form-group"><label>区间3(最高技能≥)</label><input type="number" id="s_sk_min3" value="35"></div>
+            </div>
+        </div>
+
+        <div class="config-section" style="border-left-color: var(--purple-dark);">
+            <div class="config-title" style="color: var(--purple-dark);">紫色高亮设定</div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px;">
+                规则：勾选“一定”的技能如果未达标，则绝对不会变紫；如果“一定”均达标，则根据“一定+可以”达标的总数量叠加紫色深度（最多3级）。
+            </div>
+            <div style="margin-bottom: 10px; display: flex; gap: 10px; flex-wrap: wrap;">
+                <button class="btn btn-small" style="background:var(--purple-light); color:#333;" onclick="toggleSkillCat('cat1')">主动技能</button>
+                <button class="btn btn-small" style="background:var(--purple-light); color:#333;" onclick="toggleSkillCat('cat2')">辅助技能</button>
+                <button class="btn btn-small" style="background:var(--purple-light); color:#333;" onclick="toggleSkillCat('cat3')">被动技能</button>
+            </div>
+            <div id="cat1" class="skill-cat-box"><div class="skill-cat-title">主动技能</div><div class="skill-grid" id="skills-cat1"></div></div>
+            <div id="cat2" class="skill-cat-box"><div class="skill-cat-title">辅助技能</div><div class="skill-grid" id="skills-cat2"></div></div>
+            <div id="cat3" class="skill-cat-box"><div class="skill-cat-title">被动技能</div><div class="skill-grid" id="skills-cat3"></div></div>
+        </div>
+
+        <div class="header-bar">
+            <span class="header-title text-blue">历史极值数据 (选填)</span>
+            <div>
+                <button class="btn btn-small" style="background:var(--primary-blue);" onclick="pasteTo('s_oldData')">📋 粘贴</button>
+                <button class="btn btn-small btn-red" onclick="clearElement('s_oldData')">清除</button>
+            </div>
+        </div>
+        <textarea id="s_oldData" class="form-group" style="height: 60px;" placeholder="粘贴以前生成的极值报告进行合并..."></textarea>
+
+        <div style="display: flex; gap: 10px; margin-top: 15px;">
+            <button class="btn" id="s_runBtn" onclick="startScreen()">开始测算</button>
+            <button class="btn btn-red" id="s_pauseBtn" onclick="togglePause()" disabled style="flex: 0.4;">暂停</button>
+        </div>
+        
+        <button class="btn btn-small" style="margin-top:10px; background:var(--text-muted);" onclick="toggleLog()">📝 显示/隐藏系统日志</button>
+        <div id="logConsole"></div>
+
+        <div id="progressBarBG"><div id="progressBar"></div></div>
+        <div id="statusText"></div>
+
+        <div id="excitingNews">
+            <div style="font-weight:bold; margin-bottom:5px; display:flex; justify-content:space-between;">
+                <span>🎉 达标播报 (紫底表示技能满足)</span>
+                <button class="btn btn-small btn-green" onclick="copyExciting()">复制播报</button>
+            </div>
+            <div id="newsList"></div>
+        </div>
+
+        <div class="header-bar" style="margin-top: 10px;">
+            <span class="header-title" style="color: var(--purple-dark);">🎯 满足技能条件的名单 (紫标)</span>
+            <button class="btn btn-small btn-green" onclick="copyText('s_skillHitNames')">复制命中名单</button>
+        </div>
+        <textarea id="s_skillHitNames" class="result-box" style="height: 100px;" readonly placeholder="满足紫色条件的名字..."></textarea>
+
+        <div class="header-bar">
+            <span class="header-title text-blue">最终达标总名单 (纯名字)</span>
+            <button class="btn btn-small btn-green" onclick="copyText('s_resultNames')">复制总名单</button>
+        </div>
+        <textarea id="s_resultNames" class="result-box" style="height: 150px;" readonly placeholder="汇总名单将在此输出..."></textarea>
+
+        <div class="header-bar">
+            <span class="header-title text-blue">极值统计报告</span>
+            <button class="btn btn-small btn-green" onclick="copyText('s_resultMax')">复制极值</button>
+        </div>
+        <textarea id="s_resultMax" class="result-box" style="height: 150px;" readonly placeholder="极值报告将在此输出..."></textarea>
+    </div>
+
+    <!-- ================= 测号器 ================= -->
+    <div id="page-batch" class="page">
+        <div class="nav-header">
+            <button class="back-btn" onclick="showPage('page-home')">⬅ 返回</button>
+            <h2>测号器</h2>
+            <button class="theme-btn" onclick="toggleTheme()">🌓</button>
+        </div>
+
+        <div class="config-section">
+            <div class="config-title">强号标准 (全部满足即红色高亮)</div>
+            <div class="row">
+                <div class="form-group"><label>八围阈值 ≥</label><input type="number" id="b_th_e8" value="722.33" step="0.01"></div>
+                <div class="form-group"><label>最高技能熟练度 ≥</label><input type="number" id="b_th_skill" value="50"></div>
+                <div class="form-group"><label>theMost() 纯度 ≥ (%)</label><input type="number" id="b_th_most" value="80" step="0.1"></div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="form-group"><label>默认战队名</label><input type="text" id="b_team" value="HYWZ"></div>
+            <div class="form-group"><label>读取 txt 文件</label><input type="file" id="b_file" accept=".txt" onchange="loadTxt(this)"></div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 15px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                <label style="margin: 0;">粘贴名字列表 (一行一个)</label>
+                <div>
+                    <button class="btn btn-small" style="background:var(--primary-blue);" onclick="pasteTo('b_names')">📋 粘贴</button>
+                    <button class="btn btn-small btn-red" onclick="clearElement('b_names')">清除</button>
+                </div>
+            </div>
+            <textarea id="b_names" class="form-group" style="height: 120px;" placeholder="HYY123@HYWZ&#10;HYY456..."></textarea>
+        </div>
+
+        <button class="btn" id="b_runBtn" onclick="startBatch()">开始计算</button>
+
+        <div class="header-bar" style="margin-top: 20px;">
+            <span class="header-title text-blue">计算结果 (红色为达标强号)</span>
+            <button class="btn btn-small btn-green" onclick="copyText('b_result_hidden')">复制结果</button>
+        </div>
+        <div id="b_result_display" class="result-box" style="display: block; height: 300px;"></div>
+        <textarea id="b_result_hidden" class="hidden-copy"></textarea>
+    </div>
+
+    <!-- ================= 识别纯名 ================= -->
+    <div id="page-extract" class="page">
+        <div class="nav-header">
+            <button class="back-btn" onclick="showPage('page-home')">⬅ 返回</button>
+            <h2>识别纯名</h2>
+            <button class="theme-btn" onclick="toggleTheme()">🌓</button>
+        </div>
+
+        <div class="config-section">
+            <div class="form-group">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                    <label style="margin: 0;">粘贴包含名字的文本 (例：乱七八糟的前缀 HYY100@HYWZ 乱七八糟的后缀)</label>
+                    <div>
+                        <button class="btn btn-small" style="background:var(--primary-blue);" onclick="pasteTo('extract_input')">📋 粘贴</button>
+                        <button class="btn btn-small btn-red" onclick="clearElement('extract_input')">清除</button>
+                    </div>
+                </div>
+                <textarea id="extract_input" class="form-group" style="height: 150px;" placeholder="在此粘贴大段文本..."></textarea>
+            </div>
+            
+            <button class="btn" onclick="runExtract()">开始识别提取</button>
+            
+            <div class="header-bar" style="margin-top: 20px;">
+                <span class="header-title">提取结果 (已去重)</span>
+                <button class="btn btn-small btn-green" onclick="copyText('extract_output')">📋 复制</button>
+            </div>
+            <textarea id="extract_output" class="result-box" style="height: 200px;" readonly placeholder="提取的纯名字将在此显示..."></textarea>
+        </div>
+    </div>
+
+    <!-- ================= 战力评测 ================= -->
+    <div id="page-zhanli" class="page">
+        <div class="nav-header">
+            <button class="back-btn" onclick="showPage('page-home')">⬅ 返回</button>
+            <h2>战力评测 (SP-new1)</h2>
+            <button class="theme-btn" onclick="toggleTheme()">🌓</button>
+        </div>
+
+        <div id="zl_statusBar" class="status-bar">🌐 正在从 GitHub 拉取云端模型数据...</div>
+        
+        <div style="margin-bottom: 15px; display: flex; gap: 10px;">
+            <button class="btn" style="background:var(--text-muted);" onclick="document.getElementById('zl_fileInput').click()">📂 手动导入模型文件</button>
+            <input type="file" id="zl_fileInput" accept=".json,.txt,.js" onchange="handleZLFile(event)" style="display:none">
+        </div>
+
+        <div class="config-section">
+            <div class="config-title">评分阈值 (达标显示)</div>
+            <div class="row">
+                <div class="form-group"><label>SQP 阈值 ≥</label><input type="number" id="zl_lim0" placeholder="留空不限"></div>
+                <div class="form-group"><label>SQD 阈值 ≥</label><input type="number" id="zl_lim1" placeholder="留空不限"></div>
+                <div class="form-group"><label>SPP 阈值 ≥</label><input type="number" id="zl_lim2" placeholder="留空不限"></div>
+                <div class="form-group"><label>SCQD 阈值 ≥</label><input type="number" id="zl_lim3" placeholder="留空不限"></div>
+            </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 15px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                <label style="margin: 0;">输入名字列表 (一行一个)</label>
+                <div>
+                    <button class="btn btn-small" style="background:var(--primary-blue);" onclick="pasteTo('zl_inputNames')">📋 粘贴</button>
+                    <button class="btn btn-small btn-red" onclick="clearElement('zl_inputNames')">清除</button>
+                </div>
+            </div>
+            <textarea id="zl_inputNames" class="form-group" style="height: 120px;" placeholder="HYY424099@HYWZ"></textarea>
+        </div>
+
+        <button class="btn" id="zl_runBtn" onclick="startZLCalc()" disabled>加载数据中...</button>
+
+        <div class="header-bar" style="margin-top: 20px;">
+            <span class="header-title">评测结果</span>
+            <button class="btn btn-small btn-green" onclick="copyText('zl_outputArea')">📋 复制结果</button>
+        </div>
+        <textarea id="zl_outputArea" class="result-box" style="background: #111; color: #0f0;" readonly placeholder="等待模型数据加载..."></textarea>
+    </div>
+
+    <!-- ================= 详细教程 ================= -->
+    <div id="page-tutorial" class="page">
+        <div class="nav-header">
+            <button class="back-btn" onclick="showPage('page-home')">⬅ 返回</button>
+            <h2>详细使用教程</h2>
+            <button class="theme-btn" onclick="toggleTheme()">🌓</button>
+        </div>
+        
+        <div class="config-section tutorial-content">
+            <h3>1. 筛号器 (区间变动)</h3>
+            <p>该功能用于在极大的数字区间内，利用多线程并发，极速筛选出符合你要求的“神号”。</p>
+            <ul>
+                <li><b>基础配置：</b>输入前缀和战队名。你可以自由选择使用 8 线程（极速）或 4 线程（更省电）。</li>
+                <li><b>区间条件：</b>设定最多 3 个“八围区间”。系统会自动按照这些条件进行初步筛选。</li>
+                <li><b>紫色高亮设定（重点）：</b>
+                    <ul>
+                        <li>勾选你关注的技能，每个技能旁有<b>阈值</b>（默认35）和<b>类型</b>（一定 / 可以）。</li>
+                        <li><b>“一定”技能：</b>如果未达标，那么该号<b>绝对不会变紫</b>。</li>
+                        <li><b>紫色深度：</b>当所有“一定”技能均达标后，系统会计算“一定+可以”达标的技能总数。达标 1 个浅紫，2 个中紫，3个及以上深紫。暗黑模式下紫色外围会加金色边框。</li>
+                    </ul>
+                </li>
+                <li><b>暂停与日志：</b>点击“系统日志”可查看各个线程的工作状态。切到别的 APP 再切回，系统会自动唤醒所有线程继续计算。</li>
+            </ul>
+
+            <h3>2. 测号器 (批量输入)</h3>
+            <p>对指定的已知名单进行精确计算。设定好八围、最高技能、theMost() 纯度阈值。所有条件均满足的“强号”会以<span style="color:red;font-weight:bold;">红色字体</span>高亮显示。</p>
+
+            <h3>3. 识别纯名 (文本提取)</h3>
+            <p>当你复制了一大段包含战绩、乱码、后缀的文本时，这个工具可以精准识别出所有形如 <code>名字@战队</code> 的合法组合，并自动去重，生成干净的名单列表。</p>
+
+            <h3>4. 战力评测 (SP-new1)</h3>
+            <p>计算高阶战力评分（SQP、SQD、SPP、SCQD）。打开页面时会自动从云端拉取模型。如果失败，可手动导入模型数据文件。</p>
+
+            <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 30px 0 20px;">
+            <p style="text-align: center; color: var(--text-muted); font-size: 13px;">
+                <b>鸣谢：</b>战力评测部分代码来源于 <b>shenjack</b> 大大，本工具仅作搬运与整合。<br>
+                <a href="https://shenjack.top:10007/" target="_blank" style="color: var(--primary-blue);">https://shenjack.top:10007/</a>
+            </p>
+        </div>
+    </div>
+</div>
+
+<script>
+// ================= 全局环境与主题初始化 =================
+if (localStorage.getItem('theme') === 'dark') {
+    document.body.classList.add('dark-mode');
+}
+
+function showPage(pageId) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById(pageId).classList.add('active');
+}
+
+function toggleTheme() {
+    document.body.classList.toggle('dark-mode');
+    if (document.body.classList.contains('dark-mode')) {
+        localStorage.setItem('theme', 'dark');
+    } else {
+        localStorage.setItem('theme', 'light');
+    }
+}
+
+// ================= 技能数据与基础 UI =================
+const SKILL_NAMES = ["火球","冰冻","雷击","地裂","吸血","投毒","连击","会心","瘟疫","命轮","狂暴","魅惑","加速","减速","诅咒","治愈","苏生","净化","铁壁","蓄力","聚气","潜行","血祭","分身","幻术","防御","守护","反弹","护符","护盾","反击","吞噬","亡灵","垂死","隐匿"];
+const SKILL_CATS = {
+    cat1: [6, 7, 0, 1, 2, 3, 4, 10, 14, 17, 5, 21, 8, 9], // 主动
+    cat2: [20, 19, 11, 12, 13, 18, 15, 16, 22, 24, 23, 34], // 辅助
+    cat3: [30, 25, 27, 26, 28, 33, 29, 32, 31] // 被动
+};
+
+let isScreenRunning = false, isBatchRunning = false;
+let isPaused = false;
+let activeWorkers = [];
+let maxE8 = {val: -1, list: []}, maxS7 = {val: -1, list: []}, maxGor = {val: -1, list: []};
+let histE8 = {val: -1, list: []}, histS7 = {val: -1, list: []}, histGor = {val: -1, list: []};
+let screenValidNames = [];
+let screenSkillHitNames = [];
+let threadProgress = [];
+
+function toggleLog() {
+    const logBox = document.getElementById('logConsole');
+    logBox.style.display = logBox.style.display === 'block' ? 'none' : 'block';
+}
+function logMsg(msg) {
+    const logBox = document.getElementById('logConsole');
+    const time = new Date().toLocaleTimeString();
+    logBox.innerHTML += `[${time}] ${msg}<br>`;
+    logBox.scrollTop = logBox.scrollHeight;
+}
+function toggleSkillCat(id) {
+    let el = document.getElementById(id);
+    el.classList.toggle('active');
+}
+
+function clearElement(id) { document.getElementById(id).value = ''; }
+async function pasteTo(id) {
+    try {
+        let text = await navigator.clipboard.readText();
+        if(text) document.getElementById(id).value = text;
+    } catch (e) { alert("请长按手动粘贴！"); }
+}
+function copyText(id) {
+    let ta = document.getElementById(id);
+    if (!ta) return;
+    let text = ta.value !== undefined ? ta.value : ta.innerText;
+    if (!text) return;
+    let tempTa = document.createElement('textarea');
+    tempTa.value = text;
+    tempTa.style.position = 'absolute'; tempTa.style.left = '-9999px';
+    document.body.appendChild(tempTa);
+    tempTa.select(); tempTa.setSelectionRange(0, 999999);
+    try { document.execCommand("copy"); alert("已复制！"); } catch (e) { alert("请手动复制"); }
+    document.body.removeChild(tempTa);
+}
+function copyExciting() {
+    let items = document.querySelectorAll('.news-item');
+    if (items.length === 0) return alert("暂无播报！");
+    let text = Array.from(items).map(i => i.innerText.trim()).join('\n');
+    let tempTa = document.createElement('textarea');
+    tempTa.value = text; document.body.appendChild(tempTa);
+    tempTa.select(); tempTa.setSelectionRange(0, 999999);
+    try { document.execCommand("copy"); alert("播报已复制！"); } catch (e) { alert("请手动复制"); }
+    document.body.removeChild(tempTa);
+}
+
+// ================= 识别纯名模块 =================
+function runExtract() {
+    let text = document.getElementById('extract_input').value;
+    // 核心逻辑：匹配 非空白且非@ 的字符 + @ + 非空白且非@ 的字符
+    let regex = /[^\s@]+@[^\s@]+/g;
+    let matches = text.match(regex);
+    if (matches && matches.length > 0) {
+        // 去重
+        let unique = [...new Set(matches)];
+        document.getElementById('extract_output').value = unique.join('\n');
+    } else {
+        document.getElementById('extract_output').value = "未提取到有效的名字。";
+    }
+}
+
+// ================= 技能列表生成 =================
+function initSkillGrids() {
+    for (let cat in SKILL_CATS) {
+        let grid = document.getElementById('skills-' + cat);
+        if(!grid) continue;
+        SKILL_CATS[cat].forEach(id => {
+            let div = document.createElement('div');
+            div.className = 'skill-item';
+            
+            let chk = document.createElement('input');
+            chk.type = 'checkbox'; chk.value = id; chk.className = 'skill-check';
+            
+            let nameSpan = document.createElement('span');
+            nameSpan.textContent = SKILL_NAMES[id]; nameSpan.style.flex = '1'; nameSpan.style.marginLeft = '6px'; nameSpan.style.fontSize = "13px";
+            
+            let threshInp = document.createElement('input');
+            threshInp.type = 'number'; threshInp.value = 35; threshInp.className = 'skill-thresh'; threshInp.title = "要求阈值";
+            
+            let sel = document.createElement('select');
+            sel.className = 'skill-type';
+            sel.innerHTML = '<option value="any">可以</option><option value="must">一定</option>';
+            
+            div.appendChild(chk); div.appendChild(nameSpan); div.appendChild(threshInp); div.appendChild(sel);
+            grid.appendChild(div);
+        });
+    }
+}
+
+function getSelectedSkillsData() {
+    let arr = [];
+    document.querySelectorAll('.skill-check:checked').forEach(chk => {
+        let parent = chk.parentElement;
+        let id = parseInt(chk.value);
+        let thresh = parseInt(parent.querySelector('.skill-thresh').value) || 35;
+        let type = parent.querySelector('.skill-type').value;
+        arr.push({ id, thresh, type });
+    });
+    return arr;
+}
+
+// ================= 战力评测 (SP-new1) =================
+let zl_modelData = null;
+const zl_baseUrl = "https://hywzcyh.github.io/NrD/";
+// 如果你在 GitHub 上的文件带了 .json 后缀，请在这里给名字加上后缀
+const zl_files = {
+    model_qp0: "qp0", model_qd0: "qd0", model_pp0: "pp0", model_cqd0: "cqd0", model_cqd3: "cqd3"
+};
+
+function parseZLArray(text) {
+    text = text.trim();
+    if (text.startsWith('[')) {
+        try { return JSON.parse(text); } catch(e) {}
+        try { return new Function('return ' + text)(); } catch(e) {}
+    }
+    const brackets = text.match(/\[[\s\S]*\]/g);
+    if (brackets && brackets.length > 0) {
+        let longest = brackets.sort((a,b)=>b.length-a.length)[0];
+        try { return JSON.parse(longest); } catch(e) {}
+        try { return new Function('return ' + longest)(); } catch(e) {}
+    }
+    throw new Error("无法解析数组");
+}
+
+async function loadZLModels() {
+    try {
+        const promises = Object.keys(zl_files).map(async (key) => {
+            const url = zl_baseUrl + zl_files[key];
+            const response = await fetch(url);
+            if (!response.ok) throw new Error("HTTP Error");
+            const text = await response.text();
+            return { key, arr: parseZLArray(text) };
+        });
+        const results = await Promise.all(promises);
+        zl_modelData = {};
+        for (let res of results) zl_modelData[res.key] = res.arr;
+        
+        document.getElementById('zl_statusBar').innerText = "✅ 云端模型拉取成功，可开始计算！";
+        document.getElementById('zl_statusBar').style.background = "rgba(40, 167, 69, 0.2)";
+        document.getElementById('zl_statusBar').style.color = "#155724";
+        
+        let runBtn = document.getElementById('zl_runBtn');
+        runBtn.disabled = false; runBtn.innerText = "开始测算 (SP-new1)";
+        document.getElementById('zl_outputArea').value = "准备就绪。";
+    } catch (err) {
+        document.getElementById('zl_statusBar').innerText = "❌ 云端拉取失败，请点击上方按钮手动上传模型数据！";
+        document.getElementById('zl_statusBar').style.background = "rgba(220, 53, 69, 0.2)";
+        document.getElementById('zl_statusBar').style.color = "#721c24";
+    }
+}
+
+function handleZLFile(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            let text = e.target.result;
+            if (text.includes('model_qp0') || text.includes('var qp0')) {
+                let extract = (name) => {
+                    let reg = new RegExp(`(?:const|let|var)?\\s*${name}\\s*=\\s*(\\[[\\s\\S]*?\\])`);
+                    let m = text.match(reg);
+                    return m ? parseZLArray(m[1]) : null;
+                };
+                let qp0 = extract('model_qp0') || extract('qp0');
+                let qd0 = extract('model_qd0') || extract('qd0');
+                let pp0 = extract('model_pp0') || extract('pp0');
+                let cqd0 = extract('model_cqd0') || extract('cqd0');
+                let cqd3 = extract('model_cqd3') || extract('cqd3');
+                if(qp0 && qd0 && pp0 && cqd0 && cqd3) {
+                    zl_modelData = { model_qp0: qp0, model_qd0: qd0, model_pp0: pp0, model_cqd0: cqd0, model_cqd3: cqd3 };
+                } else throw new Error("提取变量不全");
+            } else {
+                zl_modelData = JSON.parse(text);
+            }
+            
+            document.getElementById('zl_statusBar').innerText = "✅ 手动上传成功，可开始计算！";
+            document.getElementById('zl_statusBar').style.background = "rgba(40, 167, 69, 0.2)";
+            document.getElementById('zl_statusBar').style.color = "#155724";
+            
+            let runBtn = document.getElementById('zl_runBtn');
+            runBtn.disabled = false; runBtn.innerText = "开始测算 (SP-new1)";
+            document.getElementById('zl_outputArea').value = "准备就绪。";
+        } catch(err) { alert("文件解析失败，请确保包含所需的五个数组。"); }
+    };
+    reader.readAsText(file);
+}
+
+function startZLCalc() {
+    if (!zl_modelData) return;
+    const input = document.getElementById('zl_inputNames').value.trim();
+    if (!input) return alert("请输入名字");
+    const names = input.split('\n').map(s=>s.trim()).filter(s=>s);
+    const lim = [
+        parseFloat(document.getElementById('zl_lim0').value) || -99999999,
+        parseFloat(document.getElementById('zl_lim1').value) || -99999999,
+        parseFloat(document.getElementById('zl_lim2').value) || -99999999,
+        parseFloat(document.getElementById('zl_lim3').value) || -99999999
+    ];
+    
+    let runBtn = document.getElementById('zl_runBtn');
+    let outArea = document.getElementById('zl_outputArea');
+    runBtn.disabled = true; outArea.value = "计算中...\n";
+    
+    let idx = 0, resStr = "";
+    function process() {
+        let start = performance.now();
+        while(idx < names.length && performance.now() - start < 50) {
+            const line = names[idx];
+            const nametmp = line.split('@');
+            if (nametmp.length < 2) nametmp[1] = nametmp[0];
+            
+            const nameObj = new Name();
+            nameObj.load_team(nametmp[1]);
+            nameObj.load_name(nametmp[0]);
+            const props = nameObj.calc_props();
+            nameObj.calc_skills();
+            
+            for (let j = 0; j < 7; j++) props[j] += 36;
+            const x = new Array(46);
+            x[0] = props[7];
+            for (let i = 0; i < 7; i++) x[i + 1] = props[i];
+            
+            for (let i = 0; i < 38; i++) x[i + 8] = 0;
+            let zd = 1, kill = 1;
+            for (let k = 0; k < 16; k++) {
+                const skId = nameObj.skill[k], freq = nameObj.freq[k];
+                if (skId == 9 || skId == 16) { x[skId+8] = zd * freq; zd *= (1 - freq * 0.3 / 128); }
+                else if (skId == 18) { x[skId+8] = zd * freq; zd *= (1 - freq * 0.35 / 128); }
+                else if (skId == 19 || skId == 23) { x[skId+8] = zd * freq; zd *= (1 - freq * 0.6 / 128); }
+                else if (skId == 20 || skId == 22) { x[skId+8] = zd * freq; zd *= (1 - freq * 0.7 / 128); }
+                else if (skId < 25) { x[skId+8] = zd * freq; zd *= (1 - freq * 1.0 / 128); }
+                else if (skId == 31 || skId == 32) { x[skId+8] = kill * freq; kill *= (1 - freq * 1.0 / 128); }
+                else { x[skId+8] = freq; }
+            }
+            
+            if (x[32] > 0) {
+                nameObj.load_name(nametmp[0] + '?shadow');
+                const p = nameObj.calc_props();
+                const shadowi = p[0]*2.8 + p[1]*0.6 + p[2]*2.5 + p[3]*1.2 + p[4] + p[5] - 1.2*p[6] + 0.8*p[7];
+                x[43] = shadowi * 1.0 * x[32] / 100;
+            } else { x[43] = 0; }
+            if (x[42] > 0) x[44] = 1;
+            if (x[37] > 0) { x[45] = x[26]; x[26] = 0; }
+            
+            const xp_x = new Array(46), xp_array = new Array(1125);
+            for (let i = 0; i <= 45; i++) xp_x[i] = x[i];
+            let cnt = 1;
+            for (let i = 0; i < 46; i++) xp_array[++cnt] = xp_x[i];
+            for (let i = 0; i < 46; i++) {
+                for (let j = i; j < 46; j++) {
+                    if ((!(i==26 && j==37)) && (!(i==26 && j==45)) && (!(i==42 && j==44)) && (!(i==44 && j==44))) {
+                        xp_array[++cnt] = xp_x[i] * xp_x[j];
+                    }
+                }
+            }
+            xp_array[1] = 1;
+            
+            const m = zl_modelData;
+            let scoreQP = 0, scoreQD = 0, scorePP = 0;
+            for (let i = 0; i < 1124; i++) {
+                scoreQP += m.model_qp0[i] * xp_array[i+1];
+                scoreQD += m.model_qd0[i] * xp_array[i+1];
+                scorePP += m.model_pp0[i] * xp_array[i+1];
+            }
+            let scoreCQD1 = 0, scoreCQD2 = 0;
+            for (let i = 0; i < 1124; i++) scoreCQD2 += m.model_cqd0[i] * xp_array[i+1];
+            if (x[32] >= 30) { for (let i = 0; i < 1124; i++) scoreCQD1 += m.model_cqd3[i] * xp_array[i+1]; }
+            const scoreCQD = Math.max(scoreCQD1, scoreCQD2) * 100;
+            
+            if (scoreQP >= lim[0]) resStr += `${line} SQP: ${parseInt(scoreQP+0.5)}\n`;
+            if (scoreQD >= lim[1]) resStr += `${line} SQD: ${parseInt(scoreQD+0.5)}\n`;
+            if (scorePP >= lim[2]) resStr += `${line} SPP: ${parseInt(scorePP+0.5)}\n`;
+            if (scoreCQD >= lim[3]) resStr += `${line} SCQD: ${parseInt(scoreCQD+0.5)}\n`;
+            
+            idx++;
+        }
+        outArea.value = resStr; outArea.scrollTop = outArea.scrollHeight;
+        if (idx < names.length) setTimeout(process, 0);
+        else { runBtn.disabled = false; outArea.value += `\n--- 测算完成 ---`; }
+    }
+    setTimeout(process, 0);
+}
+
+// ================= 基础核心类与算法 (Name 类) =================
+const N = 256, M = 128, K = 64, skill_cnt = 40;
+const encoder = new TextEncoder();
+function getUTF8Bytes(str) { return [...encoder.encode(str)]; }
+function max(a, b) { return a > b ? a : b; }
+function min(a, b) { return a > b ? b : a; }
+
+function Name() {
+    this.val = new Array(N); this.val_base = new Array(N); this.name_base = new Array(M);
+    this.freq = new Array(skill_cnt); this.skill = new Array(skill_cnt);
+    this.p = 0; this.q = 0; this.q_len = 0;
+
+    this.m = function () {
+        this.q += this.val[++this.p]; if(this.q>255)this.q=this.q%256;
+        var tmp = this.val[this.q]; this.val[this.q] = this.val[this.p]; this.val[this.p] = tmp;
+        return this.val[(this.val[this.p] + this.val[this.q]) & 255];
+    }
+    this.gen = function () { var u = this.m(); return (u << 8 | this.m()) % skill_cnt; }
+    this.load_team = function (steam) {
+        var team = getUTF8Bytes(steam), t_len = team.length + 1, s = 0;
+        for (var x in team) team[x] -= 256;
+        for (let i = 0; i < N; i++) { this.val_base[i] = i }
+        for (let i = 0; i < N; ++i) {
+            if (i % t_len != 0) { s += team[i % t_len - 1]; if (s < 0) s += 256; }
+            s += this.val_base[i]; s = s % 256;
+            var tmp = this.val_base[s]; this.val_base[s] = this.val_base[i]; this.val_base[i] = tmp;
+        }
+    }
+    this.load_name = function (sname) {
+        var name = getUTF8Bytes(sname), n_len = name.length + 1; this.q_len = 0;
+        this.val = JSON.parse(JSON.stringify(this.val_base));
+        var s = 0;
+        for (let a = 0; a < 2; a++) {
+            s = 0;
+            for (let i = 0; i < N; i++) {
+                if (i % n_len != 0) s += name[i % n_len - 1];
+                s += this.val[i]; s = s % 256;
+                var tmp = this.val[s]; this.val[s] = this.val[i]; this.val[i] = tmp;
+            }
+        }
+        for (let i = 0; i < N; i++) {
+            var m = this.val[i] * 181 + 160; m = m % 256;
+            if (m >= 89 && m < 217) { this.name_base[this.q_len] = m & 63; this.q_len++; }
+        }
+    }
+    this.calc_props = function () {
+        var r = JSON.parse(JSON.stringify(this.name_base)), a = JSON.parse(JSON.stringify(this.name_base));
+        var props = new Array(8); r.length = 10; var p_cnt = 0;
+        for (this.p = 10, this.q = 31; this.p < this.q; this.p += 3) {
+            props[p_cnt++] = max(min(a[this.p], a[this.p + 1]), min(max(a[this.p], a[this.p + 1]), a[this.p + 2]));
+        }
+        r.sort(function (ax, bx) { return ax - bx }); props[p_cnt++] = 154;
+        for (let i = 3; i < 7; i++) props[p_cnt - 1] += r[i];
+        return props;
+    }
+    this.calc_skills = function () {
+        var a = new Array(K); for (let x = 0; x < K; x++) a[x] = this.name_base[x + K];
+        for (let i = 0; i < skill_cnt; i++) this.skill[i] = i;
+        for (let x = 0; x < skill_cnt; x++) this.freq[x] = 0;
+        this.p = 0; this.q = 0; var s = 0;
+        for (let zz = 0; zz < 2; zz++) {
+            for (let i = 0; i < skill_cnt; i++) {
+                s = (s + this.gen() + this.skill[i]) % skill_cnt;
+                var tmp = this.skill[s]; this.skill[s] = this.skill[i]; this.skill[i] = tmp;
+            }
+        }
+        var last = -1;
+        for (let i = 0, j = 0; i < K; i += 4, j++) {
+            var p = Math.min(a[i], a[i + 1], a[i + 2], a[i + 3]);
+            if (p > 10 && this.skill[j] < 35) {
+                this.freq[j] = p - 10; if (this.skill[j] < 25) last = j;
+            }
+        }
+        if (last != -1) this.freq[last] <<= 1;
+        if (this.freq[14] && last != 14) this.freq[14] += Math.min(this.name_base[60], this.name_base[61], this.freq[14]);
+        if (this.freq[15] && last != 15) this.freq[15] += Math.min(this.name_base[62], this.name_base[63], this.freq[15]);
+    }
+}
+
+// ================= 测号器 =================
+function pushUnique(list, obj) {
+    for (let i = 0; i < list.length; i++) if (list[i].name === obj.name) return;
+    if (list.length < 200) list.push(obj);
+}
+function loadTxt(input) {
+    let file = input.files[0];
+    if (!file) return;
+    let reader = new FileReader();
+    reader.onload = function(e) { document.getElementById('b_names').value = e.target.result; };
+    reader.readAsText(file);
+}
+function startBatch() {
+    if (isBatchRunning) return;
+    let rawText = document.getElementById('b_names').value.trim();
+    if (!rawText) { alert("请先粘贴名字列表！"); return; }
+    
+    let defaultTeam = document.getElementById('b_team').value.trim();
+    let names = rawText.split('\n').map(s => s.trim()).filter(s => s !== '');
+    
+    let th_e8 = parseFloat(document.getElementById('b_th_e8').value) || 0;
+    let th_skill = parseInt(document.getElementById('b_th_skill').value) || 0;
+    let th_most = parseFloat(document.getElementById('b_th_most').value) || 0;
+
+    isBatchRunning = true;
+    document.getElementById('b_runBtn').disabled = true;
+    document.getElementById('b_result_display').innerHTML = "计算中...";
+    
+    let worker = new Worker(workerUrl);
+    worker.onmessage = function(e) {
+        if (e.data.type === 'batch_done') {
+            let results = e.data.data;
+            renderBatchResults(results);
+            isBatchRunning = false;
+            document.getElementById('b_runBtn').disabled = false;
+            worker.terminate();
+        }
+    };
+    worker.postMessage({ type: 'batch', names: names, team: defaultTeam, th_e8, th_skill, th_most });
+}
+function renderBatchResults(results) {
+    let displayDiv = document.getElementById('b_result_display');
+    let hiddenArea = document.getElementById('b_result_hidden');
+    let html = ""; let textForCopy = "";
+    for (let r of results) {
+        let skStr = r.skillList.map(sk => `${sk.name}:${sk.freq}`).join(' ');
+        let line = `${r.name} | 八围:${r.e8.toFixed(2)} | 最高技能:${r.maxSkill} | 纯度:${r.theMost.toFixed(2)}% | 技能: ${skStr || '无'}`;
+        textForCopy += line + "\n";
+        if (r.isStrong) html += `<div style="color:var(--danger-red); font-weight:bold; margin-bottom:4px;">${line}</div>`;
+        else html += `<div style="color:var(--text-main); margin-bottom:4px;">${line}</div>`;
+    }
+    displayDiv.innerHTML = html || "无数据";
+    hiddenArea.value = textForCopy;
+}
+
+// ================= 筛号器 Worker =================
+const workerCode = `
+const _S = new Uint8Array(256);
+const _base = new Int32Array(128);
+const _arr = new Int32Array(10);
+const _skl_id = new Int32Array(40);
+const _freq = new Int32Array(40);
+const SKILL_NAMES = ${JSON.stringify(SKILL_NAMES)};
+let isPaused = false;
+let isLooping = false;
+let doScreenWork = null;
+
+function pushUniqueLocal(list, obj) {
+    for (let i = 0; i < list.length; i++) if (list[i].name === obj.name) return;
+    if (list.length < 200) list.push(obj);
+}
+
+function calcAll(nameBuf, nLen, S_team, needSkill) {
+    let j, k_idx, i, tmp, cnt, m;
+    _S.set(S_team);
+    j = 0; k_idx = 0;
+    for(i=0; i<256; i++) {
+        j = (j + _S[i] + nameBuf[k_idx]) & 0xFF;
+        tmp = _S[i]; _S[i] = _S[j]; _S[j] = tmp;
+        k_idx++; if(k_idx >= nLen) k_idx = 0;
+    }
+    j = 0; k_idx = 0;
+    for(i=0; i<256; i++) {
+        j = (j + _S[i] + nameBuf[k_idx]) & 0xFF;
+        tmp = _S[i]; _S[i] = _S[j]; _S[j] = tmp;
+        k_idx++; if(k_idx >= nLen) k_idx = 0;
+    }
+    cnt = 0;
+    for (i = 0; i < 256 && cnt < 128; i++) {
+        m = (_S[i] * 181 + 160) & 0xFF;
+        if (m >= 89 && m < 217) { _base[cnt] = m & 63; cnt++; }
+    }
+    for(i=0; i<10; i++) _arr[i] = _base[i];
+    for(i=1; i<10; i++) {
+        let key = _arr[i]; let k = i - 1;
+        while(k >= 0 && _arr[k] > key) { _arr[k+1] = _arr[k]; k--; }
+        _arr[k+1] = key;
+    }
+    let hp = 154 + _arr[3] + _arr[4] + _arr[5] + _arr[6];
+
+    let v1, v2, v3, m3;
+    v1 = _base[10]; v2 = _base[11]; v3 = _base[12];
+    if(v1 > v2) { m3=v1; v1=v2; v2=m3; } if(v2 > v3) { m3=v2; v2=v3; v3=m3; } if(v1 > v2) { m3=v1; v1=v2; v2=m3; }
+    let atk = v2 + 36;
+
+    v1 = _base[13]; v2 = _base[14]; v3 = _base[15];
+    if(v1 > v2) { m3=v1; v1=v2; v2=m3; } if(v2 > v3) { m3=v2; v2=v3; v3=m3; } if(v1 > v2) { m3=v1; v1=v2; v2=m3; }
+    let def = v2 + 36;
+
+    v1 = _base[16]; v2 = _base[17]; v3 = _base[18];
+    if(v1 > v2) { m3=v1; v1=v2; v2=m3; } if(v2 > v3) { m3=v2; v2=v3; v3=m3; } if(v1 > v2) { m3=v1; v1=v2; v2=m3; }
+    let spd = v2 + 36;
+
+    v1 = _base[19]; v2 = _base[20]; v3 = _base[21];
+    if(v1 > v2) { m3=v1; v1=v2; v2=m3; } if(v2 > v3) { m3=v2; v2=v3; v3=m3; } if(v1 > v2) { m3=v1; v1=v2; v2=m3; }
+    let agi = v2 + 36;
+
+    v1 = _base[22]; v2 = _base[23]; v3 = _base[24];
+    if(v1 > v2) { m3=v1; v1=v2; v2=m3; } if(v2 > v3) { m3=v2; v2=v3; v3=m3; } if(v1 > v2) { m3=v1; v1=v2; v2=m3; }
+    let mag = v2 + 36;
+
+    v1 = _base[25]; v2 = _base[26]; v3 = _base[27];
+    if(v1 > v2) { m3=v1; v1=v2; v2=m3; } if(v2 > v3) { m3=v2; v2=v3; v3=m3; } if(v1 > v2) { m3=v1; v1=v2; v2=m3; }
+    let res = v2 + 36;
+
+    v1 = _base[28]; v2 = _base[29]; v3 = _base[30];
+    if(v1 > v2) { m3=v1; v1=v2; v2=m3; } if(v2 > v3) { m3=v2; v2=v3; v3=m3; } if(v1 > v2) { m3=v1; v1=v2; v2=m3; }
+    let intel = v2 + 36;
+
+    let e8 = (hp / 3.0) + atk + def + spd + agi + mag + res + intel;
+    let s7 = atk + def + spd + agi + mag + res + intel;
+    let gor = Math.min(atk, def, spd, agi, mag, res, intel);
+    let out = { e8, s7, gor, hp, atk, def, spd, agi, mag, res, intel };
+    
+    if (!needSkill) return out;
+
+    for (let i = 0; i < 40; i++) _skl_id[i] = i;
+    let a = 0, b = 0, s = 0;
+    for (let r = 0; r < 2; r++) {
+        for (let i = 0; i < 40; i++) {
+            a += 1; b = (b + _S[a]) & 0xFF;
+            let tmp1 = _S[a]; _S[a] = _S[b]; _S[b] = tmp1;
+            let u = _S[(_S[a] + _S[b]) & 0xFF];
+            a += 1; b = (b + _S[a]) & 0xFF;
+            let tmp2 = _S[a]; _S[a] = _S[b]; _S[b] = tmp2;
+            let t_val = _S[(_S[a] + _S[b]) & 0xFF];
+            let rnd = ((u << 8) | t_val) % 40;
+            s = (s + rnd + _skl_id[i]) % 40;
+            let tmpSkl = _skl_id[i]; _skl_id[i] = _skl_id[s]; _skl_id[s] = tmpSkl;
+        }
+    }
+    for (let i = 0; i < 40; i++) _freq[i] = 0;
+    let last = -1;
+    for (let j = 0; j < 16; j++) {
+        let i = 64 + j * 4;
+        let p = _base[i];
+        if (_base[i+1] < p) p = _base[i+1];
+        if (_base[i+2] < p) p = _base[i+2];
+        if (_base[i+3] < p) p = _base[i+3];
+        if (p > 10 && _skl_id[j] < 35) {
+            _freq[j] = p - 10;
+            if (p < 35) last = j;
+        }
+    }
+    if (last === -1) {
+        if (_freq[14] > 0) { let m = _base[60] < _base[61] ? _base[60] : _base[61]; _freq[14] += (_freq[14] < m ? _freq[14] : m); }
+        if (_freq[15] > 0) { let m = _base[62] < _base[63] ? _base[62] : _base[63]; _freq[15] += (_freq[15] < m ? _freq[15] : m); }
+    } else if (last === 14) {
+        _freq[14] <<= 1;
+        if (_freq[15] > 0) { let m = _base[62] < _base[63] ? _base[62] : _base[63]; _freq[15] += (_freq[15] < m ? _freq[15] : m); }
+    } else if (last === 15) {
+        _freq[15] <<= 1;
+        if (_freq[14] > 0) { let m = _base[60] < _base[61] ? _base[60] : _base[61]; _freq[14] += (_freq[14] < m ? _freq[14] : m); }
+    } else {
+        _freq[last] <<= 1;
+        if (_freq[14] > 0) { let m = _base[60] < _base[61] ? _base[60] : _base[61]; _freq[14] += (_freq[14] < m ? _freq[14] : m); }
+        if (_freq[15] > 0) { let m = _base[62] < _base[63] ? _base[62] : _base[63]; _freq[15] += (_freq[15] < m ? _freq[15] : m); }
+    }
+
+    let maxSkill = 0, maxSkillId = -1;
+    let totalSkill = 0, strongSkill = 0;
+    let skillList = [];
+    for (let k = 0; k < 16; k++) {
+        if (_freq[k] > 0) {
+            let sid = _skl_id[k];
+            if (sid < 35) {
+                let f = _freq[k];
+                totalSkill += f;
+                if (f >= 35) strongSkill += f;
+                if (f > maxSkill) { maxSkill = f; maxSkillId = sid; }
+                skillList.push({id: sid, name: SKILL_NAMES[sid], freq: f});
+            }
+        }
+    }
+    out.maxSkill = maxSkill;
+    out.maxSkillId = maxSkillId;
+    out.totalSkill = totalSkill;
+    out.theMost = totalSkill > 0 ? (strongSkill / totalSkill) * 100 : 0;
+    out.skillList = skillList;
+    return out;
+}
+
+let nameBuf = new Uint8Array(256);
+let currentN = 0, endN = 0;
+
+self.onmessage = function(e) {
+    let d = e.data;
+    
+    if (d.type === 'pause') { isPaused = true; return; }
+    if (d.type === 'resume') {
+        isPaused = false;
+        if (!isLooping && doScreenWork) doScreenWork();
+        return;
+    }
+    
+    if (d.type === 'screen') {
+        currentN = d.start; endN = d.end;
+        let p_len = d.prefix.length, t_len = d.team.length;
+        nameBuf[0] = 0;
+        for(let k=0; k<p_len; k++) nameBuf[k+1] = d.prefix.charCodeAt(k);
+        let tk = new Uint8Array(256); tk[0] = 0;
+        for(let k=0; k<t_len; k++) tk[k+1] = d.team.charCodeAt(k);
+        
+        let S_team = new Uint8Array(256);
+        for (let i = 0; i < 256; i++) S_team[i] = i;
+        let jt = 0, kt = 0, tkl = t_len + 1;
+        for (let i = 0; i < 256; i++) {
+            jt = (jt + S_team[i] + tk[kt]) & 0xFF;
+            let tmp = S_team[i]; S_team[i] = S_team[jt]; S_team[jt] = tmp;
+            kt++; if (kt >= tkl) kt = 0;
+        }
+        
+        let localE8 = {val: -1, list: []}, localS7 = {val: -1, list: []}, localGor = {val: -1, list: []};
+        let localValidResults = [];
+        let localSkillHitResults = [];
+        let count = 0;
+        let selectedSkillsData = d.selectedSkillsData || [];
+        
+        doScreenWork = function() {
+            if (isPaused) { isLooping = false; return; }
+            isLooping = true;
+            
+            while (currentN < endN) {
+                let n = currentN;
+                let num_len = 0;
+                let offset = p_len + 1;
+                if(n === 0) { nameBuf[offset] = 48; num_len = 1; }
+                else {
+                    let temp = n, ptr = offset + 25;
+                    while(temp > 0) { let rem = temp % 10; ptr--; nameBuf[ptr] = 48 + rem; temp = Math.floor(temp / 10); num_len++; }
+                    let startPos = offset + 25 - num_len;
+                    for(let k=0; k<num_len; k++) nameBuf[offset + k] = nameBuf[startPos + k];
+                }
+                let nLen = offset + num_len;
+                let res = calcAll(nameBuf, nLen, S_team, false);
+                let s_name = d.prefix + n + "@" + d.team;
+                
+                if (res.e8 >= localE8.val || res.s7 >= localS7.val || res.gor >= localGor.val) {
+                    let obj = {name: s_name, hp: res.hp, atk: res.atk, def: res.def, spd: res.spd, agi: res.agi, mag: res.mag, res: res.res, intel: res.intel, e8: res.e8, s7: res.s7, gor: res.gor};
+                    if (res.e8 > localE8.val) { localE8.val = res.e8; localE8.list = [obj]; } else if (res.e8 === localE8.val && localE8.list.length < 200) pushUniqueLocal(localE8.list, obj);
+                    if (res.s7 > localS7.val) { localS7.val = res.s7; localS7.list = [obj]; } else if (res.s7 === localS7.val && localS7.list.length < 200) pushUniqueLocal(localS7.list, obj);
+                    if (res.gor > localGor.val) { localGor.val = res.gor; localGor.list = [obj]; } else if (res.gor === localGor.val && localGor.list.length < 200) pushUniqueLocal(localGor.list, obj);
+                }
+                
+                if (res.e8 >= 672) {
+                    let skillRes = calcAll(nameBuf, nLen, S_team, true);
+                    let isValid = false;
+                    if (skillRes.e8 >= d.e8_min1 && skillRes.e8 <= d.e8_max1 && skillRes.maxSkill >= d.sk_min1) isValid = true;
+                    else if (skillRes.e8 >= d.e8_min2 && skillRes.e8 <= d.e8_max2 && skillRes.maxSkill >= d.sk_min2) isValid = true;
+                    else if (skillRes.e8 >= d.e8_min3 && skillRes.e8 <= d.e8_max3 && skillRes.maxSkill >= d.sk_min3) isValid = true;
+                    
+                    if (isValid) {
+                        let hitCount = 0;
+                        let mustFail = false;
+                        let skillMap = {};
+                        skillRes.skillList.forEach(sk => { skillMap[sk.id] = sk.freq; });
+                        
+                        for(let sk of selectedSkillsData) {
+                            let fre = skillMap[sk.id] || 0;
+                            if(sk.type === 'must') {
+                                if(fre < sk.thresh) mustFail = true;
+                                else hitCount++;
+                            } else {
+                                if(fre >= sk.thresh) hitCount++;
+                            }
+                        }
+                        
+                        let level = 0;
+                        if (!mustFail && hitCount > 0) {
+                            level = Math.min(hitCount, 3);
+                            localSkillHitResults.push(s_name);
+                        }
+                        
+                        localValidResults.push(s_name);
+                        self.postMessage({ type: 'exciting', name: s_name, e8: skillRes.e8, maxSkill: skillRes.maxSkill, maxSkillId: skillRes.maxSkillId, theMost: skillRes.theMost, hitCount: level });
+                    }
+                }
+                
+                currentN++;
+                count++;
+                
+                if (count >= 200000) {
+                    count = 0;
+                    self.postMessage({ type: 'progress', count: currentN - d.start, e8: localE8, s7: localS7, gor: localGor });
+                    if (localValidResults.length > 0) { self.postMessage({ type: 'results', data: localValidResults }); localValidResults = []; }
+                    if (localSkillHitResults.length > 0) { self.postMessage({ type: 'skillHits', data: localSkillHitResults }); localSkillHitResults = []; }
+                    localE8 = {val: -1, list: []}; localS7 = {val: -1, list: []}; localGor = {val: -1, list: []};
+                    setTimeout(doScreenWork, 0); return;
+                }
+            }
+            self.postMessage({ type: 'done', count: currentN - d.start, e8: localE8, s7: localS7, gor: localGor });
+            if (localValidResults.length > 0) self.postMessage({ type: 'results', data: localValidResults });
+            if (localSkillHitResults.length > 0) self.postMessage({ type: 'skillHits', data: localSkillHitResults });
+            isLooping = false;
+        };
+        doScreenWork();
+    }
+    
+    if (d.type === 'batch') {
+        let names = d.names;
+        let results = [];
+        for (let i = 0; i < names.length; i++) {
+            let nameStr = names[i];
+            let atIdx = nameStr.indexOf('@');
+            let part1 = nameStr, teamStr = d.team; 
+            if (atIdx !== -1) { part1 = nameStr.substring(0, atIdx); teamStr = nameStr.substring(atIdx + 1); }
+            
+            let tk = new Uint8Array(256); tk[0] = 0;
+            for(let k=0; k<teamStr.length; k++) tk[k+1] = teamStr.charCodeAt(k);
+            let S_team_local = new Uint8Array(256);
+            for (let ii = 0; ii < 256; ii++) S_team_local[ii] = ii;
+            let jt = 0, kt = 0, tkl = teamStr.length + 1;
+            for (let ii = 0; ii < 256; ii++) {
+                jt = (jt + S_team_local[ii] + tk[kt]) & 0xFF;
+                let tmp = S_team_local[ii]; S_team_local[ii] = S_team_local[jt]; S_team_local[jt] = tmp;
+                kt++; if (kt >= tkl) kt = 0;
+            }
+            let nLen = part1.length + 1;
+            nameBuf[0] = 0;
+            for(let k=0; k<part1.length; k++) nameBuf[k+1] = part1.charCodeAt(k);
+            let res = calcAll(nameBuf, nLen, S_team_local, true);
+            res.name = nameStr;
+            res.isStrong = (res.e8 >= d.th_e8 && res.maxSkill >= d.th_skill && res.theMost >= d.th_most);
+            results.push(res);
+        }
+        self.postMessage({ type: 'batch_done', data: results });
+    }
+};
+`;
+const workerBlob = new Blob([workerCode], { type: 'application/javascript' });
+const workerUrl = URL.createObjectURL(workerBlob);
+
+function mergeWorkerData(data) {
+    if (data.e8.val > maxE8.val) { maxE8.val = data.e8.val; maxE8.list = data.e8.list; } else if (data.e8.val === maxE8.val) { for(let item of data.e8.list) pushUnique(maxE8.list, item); }
+    if (data.s7.val > maxS7.val) { maxS7.val = data.s7.val; maxS7.list = data.s7.list; } else if (data.s7.val === maxS7.val) { for(let item of data.s7.list) pushUnique(maxS7.list, item); }
+    if (data.gor.val > maxGor.val) { maxGor.val = data.gor.val; maxGor.list = data.gor.list; } else if (data.gor.val === maxGor.val) { for(let item of data.gor.list) pushUnique(maxGor.list, item); }
+}
+
+function logExciting(name, e8, maxSkill, maxSkillId, theMost, hitCount) {
+    let box = document.getElementById('excitingNews'); 
+    let list = document.getElementById('newsList');
+    box.style.display = 'block';
+    let item = document.createElement('div'); 
+    item.className = 'news-item';
+    if (hitCount > 0) item.classList.add('purple-' + hitCount);
+    let skillStr = maxSkill > 0 ? SKILL_NAMES[maxSkillId] + ':' + maxSkill : '无';
+    item.innerText = `${name} | 八围:${e8.toFixed(2)} | 最高技能:${skillStr} | 纯度:${theMost.toFixed(2)}%`;
+    if (list.firstChild) list.insertBefore(item, list.firstChild); 
+    else list.appendChild(item);
+    if (list.childNodes.length > 1024) list.removeChild(list.lastChild);
+}
+
+function updateScreenUI() {
+    let currentTotal = 0;
+    for(let p of threadProgress) currentTotal += p;
+    let el = (performance.now() - window.t0) / 1000;
+    let speed = Math.round(currentTotal / el);
+    let percent = Math.min(100, (currentTotal / window.totalCount) * 100);
+    document.getElementById('progressBar').style.width = percent.toFixed(1) + '%';
+    document.getElementById('statusText').innerText = `进度: ${Math.min(currentTotal, window.totalCount)}/${window.totalCount} | 速度: ${speed}/s | 耗时: ${el.toFixed(1)}s`;
+}
+
+function startScreen() {
+    if (isScreenRunning) return;
+    isScreenRunning = true;
+    isPaused = false;
+    activeWorkers = [];
+    document.getElementById('s_runBtn').disabled = true;
+    document.getElementById('s_pauseBtn').disabled = false;
+    document.getElementById('s_pauseBtn').innerText = "暂停";
+    document.getElementById('s_pauseBtn').className = "btn btn-red";
+    document.getElementById('progressBarBG').style.display = 'block';
+    document.getElementById('statusText').style.display = 'block';
+    document.getElementById('s_resultNames').style.display = 'none';
+    document.getElementById('s_resultMax').style.display = 'none';
+    document.getElementById('excitingNews').style.display = 'none';
+    document.getElementById('newsList').innerHTML = "";
+    document.getElementById('s_skillHitNames').value = "";
+    document.getElementById('logConsole').innerHTML = "";
+
+    histE8 = {val: -1, list: []}; histS7 = {val: -1, list: []}; histGor = {val: -1, list: []};
+    parseHistoryData();
+    maxE8 = JSON.parse(JSON.stringify(histE8));
+    maxS7 = JSON.parse(JSON.stringify(histS7));
+    maxGor = JSON.parse(JSON.stringify(histGor));
+
+    let prefix = document.getElementById('s_prefix').value.trim();
+    let team = document.getElementById('s_team').value.trim();
+    let unitVal = parseInt(document.getElementById('s_unit').value);
+    let start = Math.round(parseFloat(document.getElementById('s_start').value) * unitVal);
+    let end = Math.round(parseFloat(document.getElementById('s_end').value) * unitVal);
+    
+    if (start >= end) { alert("起始值必须小于结束值！"); isScreenRunning = false; document.getElementById('s_runBtn').disabled = false; return; }
+
+    let e8_min1 = parseFloat(document.getElementById('s_e8_min1').value) || 0;
+    let e8_max1 = parseFloat(document.getElementById('s_e8_max1').value) || 9999;
+    let sk_min1 = parseInt(document.getElementById('s_sk_min1').value) || 0;
+    let e8_min2 = parseFloat(document.getElementById('s_e8_min2').value) || 0;
+    let e8_max2 = parseFloat(document.getElementById('s_e8_max2').value) || 9999;
+    let sk_min2 = parseInt(document.getElementById('s_sk_min2').value) || 0;
+    let e8_min3 = parseFloat(document.getElementById('s_e8_min3').value) || 0;
+    let e8_max3 = parseFloat(document.getElementById('s_e8_max3').value) || 9999;
+    let sk_min3 = parseInt(document.getElementById('s_sk_min3').value) || 0;
+
+    let selectedSkillsData = getSelectedSkillsData();
+
+    window.t0 = performance.now();
+    window.totalCount = end - start;
+    
+    let numThreads = parseInt(document.getElementById('s_threads').value);
+    threadProgress = new Array(numThreads).fill(0);
+    screenValidNames = []; screenSkillHitNames = [];
+
+    let chunkSize = Math.ceil((end - start) / numThreads);
+    let finishedThreads = 0;
+    logMsg(`开始筛号，共计 ${numThreads} 个线程，总区间 ${end - start}`);
+
+    for(let i = 0; i < numThreads; i++) {
+        let wStart = start + i * chunkSize;
+        let wEnd = Math.min(start + (i + 1) * chunkSize, end);
+        if(wStart >= wEnd) { finishedThreads++; continue; }
+
+        let worker = new Worker(workerUrl);
+        activeWorkers.push(worker);
+        let idx = i;
+        logMsg(`✅ 线程 ${idx} 已激活，区间: ${wStart} - ${wEnd}`);
+
+        worker.onmessage = function(e) {
+            let data = e.data;
+            if (data.type === 'exciting') {
+                logExciting(data.name, data.e8, data.maxSkill, data.maxSkillId, data.theMost, data.hitCount);
+            } else if (data.type === 'progress') {
+                threadProgress[idx] = data.count;
+                mergeWorkerData(data);
+                updateScreenUI();
+            } else if (data.type === 'results') {
+                screenValidNames = screenValidNames.concat(data.data);
+            } else if (data.type === 'skillHits') {
+                screenSkillHitNames = screenSkillHitNames.concat(data.data);
+                let area = document.getElementById('s_skillHitNames');
+                area.value += data.data.join('\n') + '\n';
+                area.scrollTop = area.scrollHeight;
+            } else if (data.type === 'done') {
+                finishedThreads++;
+                threadProgress[idx] = data.count;
+                mergeWorkerData(data);
+                worker.terminate();
+                logMsg(`✔️ 线程 ${idx} 完成计算`);
+                if (finishedThreads === numThreads) { updateScreenUI(); finishScreen(); }
+            }
+        };
+        
+        worker.postMessage({ 
+            type: 'screen', start: wStart, end: wEnd, prefix: prefix, team: team,
+            e8_min1, e8_max1, sk_min1, e8_min2, e8_max2, sk_min2, e8_min3, e8_max3, sk_min3,
+            selectedSkillsData: selectedSkillsData
+        });
+    }
+}
+
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && isScreenRunning && !isPaused) {
+        logMsg(`页面恢复可见，唤醒所有活跃线程...`);
+        for (let w of activeWorkers) w.postMessage({ type: 'resume' });
+    }
+});
+
+function togglePause() {
+    if (!isScreenRunning) return;
+    isPaused = !isPaused;
+    document.getElementById('s_pauseBtn').innerText = isPaused ? "继续" : "暂停";
+    document.getElementById('s_pauseBtn').className = isPaused ? "btn btn-green" : "btn btn-red";
+    for (let w of activeWorkers) w.postMessage({ type: isPaused ? 'pause' : 'resume' });
+    logMsg(isPaused ? "⏸️ 已暂停所有线程" : "▶️ 已恢复所有线程");
+}
+
+function finishScreen() {
+    isScreenRunning = false; isPaused = false;
+    document.getElementById('s_runBtn').disabled = false;
+    document.getElementById('s_pauseBtn').disabled = true;
+    document.getElementById('progressBar').style.width = '100%';
+    document.getElementById('statusText').innerText = `测算完成！筛选出 ${screenValidNames.length} 个号`;
+    document.getElementById('s_resultNames').value = screenValidNames.join('\n');
+    document.getElementById('s_resultNames').style.display = 'block';
+
+    let text = "【八围最高】\n";
+    for (let item of maxE8.list) text += `   ${item.name} | 八围:${item.e8.toFixed(2)} | 七围:${item.s7} | 华丽:${item.gor}\n`;
+    text += "\n【七围最高】\n";
+    for (let item of maxS7.list) text += `   ${item.name} | 八围:${item.e8.toFixed(2)} | 七围:${item.s7} | 华丽:${item.gor}\n`;
+    text += "\n【华丽最高】\n";
+    for (let item of maxGor.list) text += `   ${item.name} | 八围:${item.e8.toFixed(2)} | 七围:${item.s7} | 华丽:${item.gor}\n`;
+    document.getElementById('s_resultMax').value = text;
+    document.getElementById('s_resultMax').style.display = 'block';
+    logMsg("🎉 所有测算任务完成！");
+}
+
+function parseHistoryData() {
+    let oldText = document.getElementById('s_oldData').value.trim();
+    if (!oldText) return;
+    let curSection = "";
+    for (let line of oldText.split('\n')) {
+        line = line.trim(); if (!line) continue;
+        if (line.includes("【八围最高】")) { curSection = "e8"; continue; }
+        if (line.includes("【七围最高】")) { curSection = "s7"; continue; }
+        if (line.includes("【华丽最高】")) { curSection = "gor"; continue; }
+        if (curSection && line.includes("|") && line.includes("八围:")) {
+            let name = line.split("|")[0].trim();
+            let e8M = line.match(/八围:\s*([\d.]+)/);
+            let s7M = line.match(/七围:\s*(\d+)/);
+            let gorM = line.match(/华丽:\s*(\d+)/);
+            if (e8M && s7M && gorM) {
+                let obj = { name: name, e8: parseFloat(e8M[1]), s7: parseInt(s7M[1]), gor: parseInt(gorM[1]) };
+                if (curSection === "e8") { if (obj.e8 > histE8.val) { histE8.val = obj.e8; histE8.list = [obj]; } else if (obj.e8 === histE8.val) pushUnique(histE8.list, obj); }
+                else if (curSection === "s7") { if (obj.s7 > histS7.val) { histS7.val = obj.s7; histS7.list = [obj]; } else if (obj.s7 === histS7.val) pushUnique(histS7.list, obj); }
+                else if (curSection === "gor") { if (obj.gor > histGor.val) { histGor.val = obj.gor; histGor.list = [obj]; } else if (obj.gor === histGor.val) pushUnique(histGor.list, obj); }
+            }
+        }
+    }
+}
+
+// 初始启动
+initSkillGrids();
+window.onload = loadZLModels;
+</script>
+</body>
+</html>
