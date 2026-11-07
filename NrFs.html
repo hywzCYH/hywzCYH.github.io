@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>极简 Namerena</title>
+<style>
+    /* ================= 极简配色方案 ================= */
+    :root {
+        --bg: #ffffff;
+        --text: #111111;
+        --blue: #3b82f6;
+        --light-blue: #e0f2fe;
+        --gray: #888888;
+        --border: #e5e7eb;
+    }
+    body.dark {
+        --bg: #0a0a0a;
+        --text: #f3f3f3;
+        --blue: #60a5fa;
+        --light-blue: #1e3a8a;
+        --gray: #888888;
+        --border: #262626;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+        background-color: var(--bg);
+        color: var(--text);
+        margin: 0;
+        padding: 0;
+        transition: background 0.2s, color 0.2s;
+    }
+
+    /* 顶部便捷导航工具栏 */
+    .navbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 15px;
+        border-bottom: 1px solid var(--border);
+        position: sticky; top: 0; background-color: var(--bg); z-index: 100;
+    }
+    .nav-tabs { display: flex; gap: 10px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .nav-tab {
+        padding: 8px 12px; border-radius: 6px; font-size: 14px; cursor: pointer; white-space: nowrap;
+        background: none; border: 1px solid transparent; color: var(--gray); font-weight: bold;
+        user-select: none; -webkit-user-select: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+    }
+    .nav-tab.active { background-color: var(--light-blue); color: var(--blue); border-color: var(--blue); }
+    .theme-btn {
+        background: none; border: 1px solid var(--border); color: var(--text); padding: 6px 10px;
+        border-radius: 6px; cursor: pointer; font-size: 14px; margin-left: 10px;
+        user-select: none; touch-action: manipulation;
+    }
+
+    /* 容器与页面切换 */
+    .container { max-width: 800px; margin: 0 auto; padding: 20px; }
+    .page { display: none; }
+    .page.active { display: block; animation: fadeIn 0.2s; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    /* 表单区 */
+    h3 { font-size: 15px; margin: 20px 0 10px 0; padding-bottom: 5px; border-bottom: 1px solid var(--border); }
+    .config-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; }
+    .form-item { flex: 1; min-width: 110px; }
+    .form-item label { display: block; font-size: 12px; margin-bottom: 4px; color: var(--gray); }
+    input[type="text"], input[type="number"], select, textarea {
+        width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid var(--border); border-radius: 4px;
+        background-color: var(--bg); color: var(--text); font-size: 14px; font-family: inherit;
+    }
+    textarea { resize: vertical; height: 120px; font-family: monospace; }
+    input:focus, textarea:focus { outline: none; border-color: var(--blue); }
+
+    /* 按钮区 */
+    .btn-group { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+    .btn { padding: 10px; border: none; border-radius: 4px; font-size: 14px; font-weight: bold; cursor: pointer; background-color: var(--blue); color: white; flex: 1; min-width: 120px; }
+    .btn-small { padding: 6px 12px; font-size: 12px; flex: none; background-color: var(--light-blue); color: var(--text); border: 1px solid var(--blue); border-radius: 4px; cursor: pointer; font-weight: bold; }
+    .btn-small:hover { background-color: var(--blue); color: white; }
+    .btn:disabled { background-color: #a3a3a3; cursor: not-allowed; }
+
+    /* 进度显示 */
+    .progress-text { color: #999999; font-size: 13px; margin: 10px 0; font-weight: bold; }
+</style>
+</head>
+<body>
+
+<!-- 顶部便捷跳转工具栏 -->
+<div class="navbar">
+    <div class="nav-tabs">
+        <div class="nav-tab active" id="tab-eval">⚔️ 战力评测</div>
+        <div class="nav-tab" id="tab-parse">📊 解析号</div>
+        <div class="nav-tab" id="tab-extract">🏷️ 除杂提取</div>
+    </div>
+    <div class="theme-btn" id="theme-btn">🌓 黑白</div>
+</div>
+
+<div class="container">
+    <!-- 1. 战力评测 (区间跑号) -->
+    <div id="page-eval" class="page active">
+        <h3>基础配置</h3>
+        <div class="config-row">
+            <div class="form-item"><label>前缀</label><input type="text" id="ev_prefix" value="HYY"></div>
+            <div class="form-item"><label>战队名 (无@)</label><input type="text" id="ev_team" value="HYWZ"></div>
+            <div class="form-item">
+                <label>线程数</label>
+                <select id="ev_threads"><option value="8">8线程</option><option value="4">4线程</option></select>
+            </div>
+        </div>
+        <div class="config-row">
+            <div class="form-item"><label>起始号</label><input type="number" id="ev_start" value="0" step="0.1"></div>
+            <div class="form-item"><label>结束号</label><input type="number" id="ev_end" value="1" step="0.1"></div>
+            <div class="form-item">
+                <label>单位</label>
+                <select id="ev_unit">
+                    <option value="100000">10w</option>
+                    <option value="1000000">100w</option>
+                    <option value="10000000">1000w</option>
+                </select>
+            </div>
+        </div>
+
+        <h3>筛选阈值 (八围必须满足，四项评分至少满足一项)</h3>
+        <div class="config-row">
+            <div class="form-item"><label>八围 ≥</label><input type="number" id="ev_th_e8" value="672" step="0.01"></div>
+            <div class="form-item"><label>SQP ≥</label><input type="number" id="ev_th_sqp" placeholder="不限"></div>
+            <div class="form-item"><label>SQD ≥</label><input type="number" id="ev_th_sqd" placeholder="不限"></div>
+            <div class="form-item"><label>SPP ≥</label><input type="number" id="ev_th_spp" placeholder="不限"></div>
+            <div class="form-item"><label>SCQD ≥</label><input type="number" id="ev_th_scqd" placeholder="不限"></div>
+        </div>
+
+        <div class="btn-group">
+            <button class="btn" id="ev_runBtn" style="margin-top: 10px;" disabled>开始全区间测算</button>
+            <button class="btn-small" id="ev_importBtn" style="display:none; margin-top: 10px; background:var(--text); color:var(--bg);" onclick="document.getElementById('ev_fileInput').click()">📂 手动导入模型</button>
+            <input type="file" id="ev_fileInput" multiple accept=".json,.txt,.js" style="display:none" onchange="handleFileUpload(event)">
+        </div>
+        
+        <div id="ev_prog" class="progress-text">正在初始化...</div>
+
+        <h3>详细数据结果</h3>
+        <div class="btn-group"><button class="btn-small" onclick="copyText('ev_out_detail')">📋 复制详细</button></div>
+        <textarea id="ev_out_detail" readonly placeholder="详细数据将在此输出..."></textarea>
+
+        <h3>达标纯名字 (自动去重)</h3>
+        <div class="btn-group"><button class="btn-small" onclick="copyText('ev_out_names')">📋 复制名字</button></div>
+        <textarea id="ev_out_names" readonly placeholder="纯名字将在此输出..."></textarea>
+    </div>
+
+    <!-- 2. 解析号 (批量输入) -->
+    <div id="page-parse" class="page">
+        <h3>输入名单 (一行一个)</h3>
+        <div class="btn-group">
+            <button class="btn-small" onclick="pasteTo('pa_input')">📋 粘贴</button>
+            <button class="btn-small" onclick="clearInput('pa_input')">清除</button>
+        </div>
+        <textarea id="pa_input" placeholder="HYY424099@HYWZ&#10;HYY123456@HYWZ"></textarea>
+
+        <button class="btn" id="pa_runBtn" style="margin-top: 10px;" disabled>开始解析所有信息</button>
+
+        <h3>解析结果</h3>
+        <div class="btn-group"><button class="btn-small" onclick="copyText('pa_output')">📋 复制结果</button></div>
+        <textarea id="pa_output" style="height: 250px;" readonly placeholder="解析结果将在此显示..."></textarea>
+    </div>
+
+    <!-- 3. 除杂提取 (文本识别) -->
+    <div id="page-extract" class="page">
+        <h3>粘贴包含名字的大段文本</h3>
+        <div class="btn-group">
+            <button class="btn-small" onclick="pasteTo('ex_input')">📋 粘贴</button>
+            <button class="btn-small" onclick="clearInput('ex_input')">清除</button>
+        </div>
+        <textarea id="ex_input" placeholder="乱七八糟的前缀 HYY100@HYWZ 乱七八糟的后缀..."></textarea>
+
+        <button class="btn" id="ex_runBtn" style="margin-top: 10px;">开始除杂提取</button>
+
+        <h3>提取结果 (自动去重)</h3>
+        <div class="btn-group"><button class="btn-small" onclick="copyText('ex_output')">📋 复制名字</button></div>
+        <textarea id="ex_output" readonly></textarea>
+    </div>
+</div>
+
+<script>
+// ================= 基础 UI 逻辑 =================
+if (localStorage.getItem('dark') === '1') document.body.classList.add('dark');
+
+function toggleDark() {
+    document.body.classList.toggle('dark');
+    localStorage.setItem('dark', document.body.classList.contains('dark') ? '1' : '0');
+}
+
+function showPage(id) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    if (id === 'page-eval') document.getElementById('tab-eval').classList.add('active');
+    else if (id === 'page-parse') document.getElementById('tab-parse').classList.add('active');
+    else if (id === 'page-extract') document.getElementById('tab-extract').classList.add('active');
+}
+
+window.onload = function() {
+    document.getElementById('tab-eval').addEventListener('click', () => showPage('page-eval'));
+    document.getElementById('tab-parse').addEventListener('click', () => showPage('page-parse'));
+    document.getElementById('tab-extract').addEventListener('click', () => showPage('page-extract'));
+    document.getElementById('theme-btn').addEventListener('click', toggleDark);
+    
+    document.getElementById('ev_runBtn').addEventListener('click', startEval);
+    document.getElementById('pa_runBtn').addEventListener('click', startParse);
+    document.getElementById('ex_runBtn').addEventListener('click', startExtract);
+    
+    loadModels();
+};
+
+function clearInput(id) { document.getElementById(id).value = ''; }
+async function pasteTo(id) {
+    try {
+        let t = await navigator.clipboard.readText();
+        if(t) document.getElementById(id).value = t;
+    } catch(e) { alert("请长按输入框手动粘贴"); }
+}
+function copyText(id) {
+    let el = document.getElementById(id);
+    let text = el.value || el.innerText;
+    if(!text) return alert("暂无内容");
+    let temp = document.createElement("textarea");
+    temp.value = text; temp.style.position = "absolute"; temp.style.left = "-9999px";
+    document.body.appendChild(temp);
+    temp.select(); temp.setSelectionRange(0, 999999);
+    try { document.execCommand("copy"); alert("已复制！"); } catch(e) { alert("复制失败"); }
+    document.body.removeChild(temp);
+}
+
+// ================= 除杂提取 =================
+function startExtract() {
+    let txt = document.getElementById('ex_input').value;
+    let match = txt.match(/[^\s@]+@[^\s@]+/g);
+    if(match && match.length) {
+        document.getElementById('ex_output').value = [...new Set(match)].join('\n');
+    } else {
+        document.getElementById('ex_output').value = "未提取到有效名字。";
+    }
+}
+
+// ================= 核心算法基础 =================
+const N = 256, M = 128, K = 64, skill_cnt = 40;
+const encoder = new TextEncoder();
+function getUTF8Bytes(str) { return [...encoder.encode(str)]; }
+function max(a, b) { return a > b ? a : b; }
+function min(a, b) { return a > b ? b : a; }
+
+function Name() {
+    this.val = new Array(N); this.val_base = new Array(N); this.name_base = new Array(M);
+    this.freq = new Array(skill_cnt); this.skill = new Array(skill_cnt);
+    this.p = 0; this.q = 0; this.q_len = 0;
+
+    this.m = function () {
+        this.q += this.val[++this.p]; if(this.q>255)this.q=this.q%256;
+        var tmp = this.val[this.q]; this.val[this.q] = this.val[this.p]; this.val[this.p] = tmp;
+        return this.val[(this.val[this.p] + this.val[this.q]) & 255];
+    }
+    this.gen = function () { var u = this.m(); return (u << 8 | this.m()) % skill_cnt; }
+    this.load_team = function (steam) {
+        var team = getUTF8Bytes(steam), t_len = team.length + 1, s = 0;
+        for (var x in team) team[x] -= 256;
+        for (let i = 0; i < N; i++) { this.val_base[i] = i }
+        for (let i = 0; i < N; ++i) {
+            if (i % t_len != 0) { s += team[i % t_len - 1]; if (s < 0) s += 256; }
+            s += this.val_base[i]; s = s % 256;
+            var tmp = this.val_base[s]; this.val_base[s] = this.val_base[i]; this.val_base[i] = tmp;
+        }
+    }
+    this.load_name = function (sname) {
+        var name = getUTF8Bytes(sname), n_len = name.length + 1; this.q_len = 0;
+        this.val = JSON.parse(JSON.stringify(this.val_base));
+        var s = 0;
+        for (let a = 0; a < 2; a++) {
+            s = 0;
+            for (let i = 0; i < N; i++) {
+                if (i % n_len != 0) s += name[i % n_len - 1];
+                s += this.val[i]; s = s % 256;
+                var tmp = this.val[s]; this.val[s] = this.val[i]; this.val[i] = tmp;
+            }
+        }
+        for (let i = 0; i < N; i++) {
+            var m = this.val[i] * 181 + 160; m = m % 256;
+            if (m >= 89 && m < 217) { this.name_base[this.q_len] = m & 63; this.q_len++; }
+        }
+    }
+    this.calc_props = function () {
+        var r = JSON.parse(JSON.stringify(this.name_base)), a = JSON.parse(JSON.stringify(this.name_base));
+        var props = new Array(8); r.length = 10; var p_cnt = 0;
+        for (this.p = 10, this.q = 31; this.p < this.q; this.p += 3) {
+            props[p_cnt++] = max(min(a[this.p], a[this.p + 1]), min(max(a[this.p], a[this.p + 1]), a[this.p + 2]));
+        }
+        r.sort(function (ax, bx) { return ax - bx }); props[p_cnt++] = 154;
+        for (let i = 3; i < 7; i++) props[p_cnt - 1] += r[i];
+        return props;
+    }
+    this.calc_skills = function () {
+        var a = new Array(K); for (let x = 0; x < K; x++) a[x] = this.name_base[x + K];
+        for (let i = 0; i < skill_cnt; i++) this.skill[i] = i;
+        for (let x = 0; x < skill_cnt; x++) this.freq[x] = 0;
+        this.p = 0; this.q = 0; var s = 0;
+        for (let zz = 0; zz < 2; zz++) {
+            for (let i = 0; i < skill_cnt; i++) {
+                s = (s + this.gen() + this.skill[i]) % skill_cnt;
+                var tmp = this.skill[s]; this.skill[s] = this.skill[i]; this.skill[i] = tmp;
+            }
+        }
+        var last = -1;
+        for (let i = 0, j = 0; i < K; i += 4, j++) {
+            var p = Math.min(a[i], a[i + 1], a[i + 2], a[i + 3]);
+            if (p > 10 && this.skill[j] < 35) {
+                this.freq[j] = p - 10; if (this.skill[j] < 25) last = j;
+            }
+        }
+        if (last != -1) this.freq[last] <<= 1;
+        if (this.freq[14] && last != 14) this.freq[14] += Math.min(this.name_base[60], this.name_base[61], this.freq[14]);
+        if (this.freq[15] && last != 15) this.freq[15] += Math.min(this.name_base[62], this.name_base[63], this.freq[15]);
+    }
+}
+
+const SKILL_NAMES = ["火球","冰冻","雷击","地裂","吸血","投毒","连击","会心","瘟疫","命轮","狂暴","魅惑","加速","减速","诅咒","治愈","苏生","净化","铁壁","蓄力","聚气","潜行","血祭","分身","幻术","防御","守护","反弹","护符","护盾","反击","吞噬","亡灵","垂死","隐匿"];
+
+// ================= 主线程战力计算函数 =================
+let modelData = null;
+
+function calcAllEvalInfo(nameStr, teamStr) {
+    if (!modelData) return null;
+    let nm = new Name();
+    nm.load_team(teamStr);
+    nm.load_name(nameStr);
+    
+    let props = nm.calc_props();
+    let e8 = (props[7] / 3.0) + (props[0] + 36) + (props[1] + 36) + (props[2] + 36) + (props[3] + 36) + (props[4] + 36) + (props[5] + 36) + (props[6] + 36);
+    
+    nm.calc_skills();
+    
+    const x = new Array(46);
+    x[0] = props[7];
+    for (let i = 0; i < 7; i++) x[i + 1] = props[i] + 36;
+    
+    for (let i = 0; i < 38; i++) x[i + 8] = 0;
+    let zd = 1, kill = 1;
+    for (let k = 0; k < 16; k++) {
+        const skId = nm.skill[k], f = nm.freq[k];
+        if (skId >= 35) continue;
+        if (skId == 9 || skId == 16) { x[skId+8] = zd * f; zd *= (1 - f * 0.3 / 128); }
+        else if (skId == 18) { x[skId+8] = zd * f; zd *= (1 - f * 0.35 / 128); }
+        else if (skId == 19 || skId == 23) { x[skId+8] = zd * f; zd *= (1 - f * 0.6 / 128); }
+        else if (skId == 20 || skId == 22) { x[skId+8] = zd * f; zd *= (1 - f * 0.7 / 128); }
+        else if (skId < 25) { x[skId+8] = zd * f; zd *= (1 - f * 1.0 / 128); }
+        else if (skId == 31 || skId == 32) { x[skId+8] = kill * f; kill *= (1 - f * 1.0 / 128); }
+        else { x[skId+8] = f; }
+    }
+    
+    if (x[32] > 0) {
+        let nm2 = new Name();
+        nm2.load_team(teamStr);
+        nm2.load_name(nameStr + '?shadow');
+        let p2 = nm2.calc_props();
+        const shadowi = p2[0]*2.8 + p2[1]*0.6 + p2[2]*2.5 + p2[3]*1.2 + p2[4] + p2[5] - 1.2*p2[6] + 0.8*p2[7];
+        x[43] = shadowi * 1.0 * x[32] / 100;
+    } else { x[43] = 0; }
+    if (x[42] > 0) x[44] = 1;
+    if (x[37] > 0) { x[45] = x[26]; x[26] = 0; }
+    
+    const xp_x = new Array(46), xp_array = new Array(1125);
+    for (let i = 0; i <= 45; i++) xp_x[i] = x[i];
+    let cnt = 1;
+    for (let i = 0; i < 46; i++) xp_array[++cnt] = xp_x[i];
+    for (let i = 0; i < 46; i++) {
+        for (let j = i; j < 46; j++) {
+            if ((!(i==26 && j==37)) && (!(i==26 && j==45)) && (!(i==42 && j==44)) && (!(i==44 && j==44))) {
+                xp_array[++cnt] = xp_x[i] * xp_x[j];
+            }
+        }
+    }
+    xp_array[1] = 1;
+    
+    let scoreQP = 0, scoreQD = 0, scorePP = 0;
+    for (let i = 0; i < 1124; i++) {
+        scoreQP += modelData.qp0[i] * xp_array[i+1];
+        scoreQD += modelData.qd0[i] * xp_array[i+1];
+        scorePP += modelData.pp0[i] * xp_array[i+1];
+    }
+    let scoreCQD1 = 0, scoreCQD2 = 0;
+    for (let i = 0; i < 1124; i++) scoreCQD2 += modelData.cqd0[i] * xp_array[i+1];
+    if (x[32] >= 30) { for (let i = 0; i < 1124; i++) scoreCQD1 += modelData.cqd3[i] * xp_array[i+1]; }
+    const scoreCQD = Math.max(scoreCQD1, scoreCQD2) * 100;
+    
+    let skillsList = [];
+    for(let k=0; k<16; k++) {
+        let skId = nm.skill[k], f = nm.freq[k];
+        if(f > 0 && skId < 35) skillsList.push({id: skId, freq: f});
+    }
+    skillsList.sort((a,b) => b.freq - a.freq);
+
+    return {
+        e8: e8,
+        sqp: scoreQP, sqd: scoreQD, spp: scorePP, scqd: scoreCQD,
+        hp: props[7], atk: props[0]+36, def: props[1]+36, spd: props[2]+36,
+        agi: props[3]+36, mag: props[4]+36, res: props[5]+36, intel: props[6]+36,
+        skills: skillsList
+    };
+}
+
+// ================= 加载云端数据与容错处理 =================
+async function loadModels() {
+    let prog = document.getElementById('ev_prog');
+    prog.innerText = "正在尝试从云端拉取模型数据 (8秒超时)...";
+    
+    const files = ["qp0", "qd0", "pp0", "cqd0", "cqd3"];
+    let successCount = 0;
+    
+    try {
+        const promises = files.map(async (name) => {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 8000);
+            
+            let res = await fetch("https://hywzcyh.github.io/NrD/" + name, { signal: controller.signal });
+            clearTimeout(timeoutId);
+            
+            if(!res.ok) throw new Error("HTTP " + res.status);
+            let text = await res.text();
+            let arr;
+            if (text.startsWith('[')) { try { arr = JSON.parse(text); } catch(e) { arr = new Function('return ' + text)(); } }
+            else {
+                let m = text.match(/\[[\s\S]*\]/);
+                if(m) arr = new Function('return ' + m[0])();
+            }
+            if (!arr || !arr.length) throw new Error("数据解析失败");
+            
+            successCount++;
+            prog.innerText = "正在下载云端模型... (" + successCount + "/" + files.length + ")";
+            return { name, arr };
+        });
+        
+        let results = await Promise.all(promises);
+        modelData = {};
+        results.forEach(r => { modelData[r.name] = r.arr; });
+        
+        prog.innerText = "✅ 云端模型加载完成，准备就绪。";
+        document.getElementById('ev_runBtn').disabled = false;
+        document.getElementById('pa_runBtn').disabled = false;
+        
+    } catch (e) {
+        prog.innerText = "❌ 云端加载失败/超时！请点击右侧按钮手动导入！";
+        document.getElementById('ev_importBtn').style.display = "block";
+    }
+}
+
+// 手动导入兜底
+function handleFileUpload(event) {
+    let files = event.target.files;
+    if(!files || files.length === 0) return;
+    let prog = document.getElementById('ev_prog');
+    prog.innerText = "正在解析手动导入的模型...";
+    
+    let tempData = {};
+    let readCount = 0;
+    for(let i=0; i<files.length; i++) {
+        let file = files[i];
+        let reader = new FileReader();
+        reader.onload = function(e) {
+            let text = e.target.result;
+            let arr;
+            if (text.startsWith('[')) { try { arr = JSON.parse(text); } catch(e) { arr = new Function('return ' + text)(); } }
+            else {
+                let m = text.match(/\[[\s\S]*\]/);
+                if(m) arr = new Function('return ' + m[0])();
+            }
+            let fname = file.name.toLowerCase();
+            if(fname.includes('qp0')) tempData.qp0 = arr;
+            else if(fname.includes('qd0')) tempData.qd0 = arr;
+            else if(fname.includes('pp0')) tempData.pp0 = arr;
+            else if(fname.includes('cqd0')) tempData.cqd0 = arr;
+            else if(fname.includes('cqd3')) tempData.cqd3 = arr;
+            
+            readCount++;
+            if(readCount === files.length) {
+                if(tempData.qp0 && tempData.qd0 && tempData.pp0 && tempData.cqd0 && tempData.cqd3) {
+                    modelData = tempData;
+                    prog.innerText = "✅ 手动模型导入成功，可开始测评！";
+                    document.getElementById('ev_runBtn').disabled = false;
+                    document.getElementById('pa_runBtn').disabled = false;
+                    document.getElementById('ev_importBtn').style.display = "none";
+                } else {
+                    prog.innerText = "❌ 导入的文件不全，请确保包含 qp0, qd0, pp0, cqd0, cqd3 这5个文件！";
+                }
+            }
+        };
+        reader.readAsText(file);
+    }
+}
+
+// ================= 解析号 (批量输入) =================
+function startParse() {
+    if (!modelData) return alert("模型尚未加载完毕，请稍候！");
+    let input = document.getElementById('pa_input').value.trim();
+    if(!input) return alert("请输入名字");
+    let names = input.split('\n').map(s=>s.trim()).filter(s=>s);
+    
+    let out = "";
+    for(let i=0; i<names.length; i++) {
+        let line = names[i], t = line.split('@');
+        let p1 = t[0], team = t.length > 1 ? t[1] : p1;
+        
+        let info = calcAllEvalInfo(p1, team);
+        if (!info) continue;
+        
+        let skStr = info.skills.map(sk => SKILL_NAMES[sk.id] + ":" + sk.freq).join(' ');
+        out += line + " | 八围:" + info.e8.toFixed(2) + " | HP:" + info.hp + " 攻:" + info.atk + " 防:" + info.def + " 速:" + info.spd + " 敏:" + info.agi + " 魔:" + info.mag + " 抗:" + info.res + " 智:" + info.intel + "\n";
+        out += "  SQP:" + parseInt(info.sqp+0.5) + " SQD:" + parseInt(info.sqd+0.5) + " SPP:" + parseInt(info.spp+0.5) + " SCQD:" + parseInt(info.scqd+0.5) + "\n";
+        out += "  技能: " + (skStr || '无') + "\n\n";
+    }
+    document.getElementById('pa_output').value = out;
+}
+
+// ================= 战力评测 Worker 准备 =================
+const workerCode = `
+const N = 256, M = 128, K = 64, skill_cnt = 40;
+const encoder = new TextEncoder();
+function getUTF8Bytes(str) { return [...encoder.encode(str)]; }
+function max(a, b) { return a > b ? a : b; }
+function min(a, b) { return a > b ? b : a; }
+let modelData = null;
+
+self.onmessage = function(e) {
+    let d = e.data;
+    if (d.type === 'start') {
+        modelData = d.models;
+        
+        let start = d.start, end = d.end;
+        let prefix = d.prefix, team = d.team;
+        let th_e8 = d.th_e8, th_sqp = d.th_sqp, th_sqd = d.th_sqd, th_spp = d.th_spp, th_scqd = d.th_scqd;
+        
+        let p_len = prefix.length;
+        let nameBuf = new Uint8Array(256);
+        nameBuf[0] = 0;
+        for(let k=0; k<p_len; k++) nameBuf[k+1] = prefix.charCodeAt(k);
+        
+        let teamBuf = getUTF8Bytes(team), t_len = teamBuf.length + 1;
+        let tk = new Uint8Array(256); tk[0] = 0;
+        for(let k=0; k<teamBuf.length; k++) tk[k+1] = teamBuf[k];
+        
+        let S_team = new Uint8Array(256);
+        for (let i = 0; i < 256; i++) S_team[i] = i;
+        let jt = 0, kt = 0;
+        for (let i = 0; i < 256; i++) {
+            jt = (jt + S_team[i] + tk[kt]) & 0xFF;
+            let tmp = S_team[i]; S_team[i] = S_team[jt]; S_team[jt] = tmp;
+            kt++; if (kt >= t_len) kt = 0;
+        }
+
+        let validNames = [];
+        let validDetails = [];
+        
+        let S = new Uint8Array(256);
+        let base = new Int32Array(128);
+        let arr = new Int32Array(10);
+        let skl_id = new Int32Array(40);
+        let freq = new Int32Array(40);
+        let S2 = new Uint8Array(256);
+        let base2 = new Int32Array(128);
+        let arr2 = new Int32Array(10);
+        let shadowBuf = new Uint8Array(256);
+        
+        let med3 = (a,b,c) => { let t; if(a>b){t=a;a=b;b=t;} if(b>c){t=b;b=c;c=t;} if(a>b){t=a;a=b;b=t;} return b; };
+        let processed = 0;
+
+        for(let n=start; n<=end; n++) {
+            processed++;
+            let ns = n.toString();
+            for(let k=0; k<ns.length; k++) nameBuf[p_len + k + 1] = ns.charCodeAt(k);
+            let nLen = p_len + ns.length + 1;
+            
+            S.set(S_team);
+            let j = 0, k_idx = 0;
+            for(let i=0; i<256; i++) { j = (j + S[i] + nameBuf[k_idx]) & 0xFF; let tmp = S[i]; S[i] = S[j]; S[j] = tmp; k_idx++; if(k_idx >= nLen) k_idx = 0; }
+            j = 0; k_idx = 0;
+            for(let i=0; i<256; i++) { j = (j + S[i] + nameBuf[k_idx]) & 0xFF; let tmp = S[i]; S[i] = S[j]; S[j] = tmp; k_idx++; if(k_idx >= nLen) k_idx = 0; }
+            
+            let cnt = 0;
+            for (let i = 0; i < 256 && cnt < 128; i++) { let m = (S[i] * 181 + 160) & 0xFF; if (m >= 89 && m < 217) { base[cnt] = m & 63; cnt++; } }
+            
+            for(let i=0; i<10; i++) arr[i] = base[i];
+            arr.sort((a,b)=>a-b);
+            let hp = 154 + arr[3] + arr[4] + arr[5] + arr[6];
+            
+            let atk = med3(base[10], base[11], base[12]) + 36;
+            let def = med3(base[13], base[14], base[15]) + 36;
+            let spd = med3(base[16], base[17], base[18]) + 36;
+            let agi = med3(base[19], base[20], base[21]) + 36;
+            let mag = med3(base[22], base[23], base[24]) + 36;
+            let res = med3(base[25], base[26], base[27]) + 36;
+            let intel = med3(base[28], base[29], base[30]) + 36;
+            
+            let e8 = (hp / 3.0) + atk + def + spd + agi + mag + res + intel;
+            if(e8 < th_e8) {
+                if (processed % 50000 === 0) self.postMessage({type: 'progress', count: 50000});
+                continue;
+            }
+            
+            let props = [atk, def, spd, agi, mag, res, intel, hp];
+            for(let i=0; i<40; i++) skl_id[i] = i;
+            let a = 0, b = 0, s = 0;
+            for (let r = 0; r < 2; r++) {
+                for (let i = 0; i < 40; i++) {
+                    a += 1; b = (b + S[a]) & 0xFF;
+                    let tmp1 = S[a]; S[a] = S[b]; S[b] = tmp1;
+                    let u = S[(S[a] + S[b]) & 0xFF];
+                    a += 1; b = (b + S[a]) & 0xFF;
+                    let tmp2 = S[a]; S[a] = S[b]; S[b] = tmp2;
+                    let t_val = S[(S[a] + S[b]) & 0xFF];
+                    let rnd = ((u << 8) | t_val) % 40;
+                    s = (s + rnd + skl_id[i]) % 40;
+                    let tmpSkl = skl_id[i]; skl_id[i] = skl_id[s]; skl_id[s] = tmpSkl;
+                }
+            }
+            
+            for(let i=0; i<40; i++) freq[i] = 0;
+            let last = -1;
+            for (let j = 0; j < 16; j++) {
+                let i = 64 + j * 4;
+                let p = base[i];
+                if (base[i+1] < p) p = base[i+1];
+                if (base[i+2] < p) p = base[i+2];
+                if (base[i+3] < p) p = base[i+3];
+                if (p > 10 && skl_id[j] < 35) {
+                    freq[j] = p - 10;
+                    if (skl_id[j] < 25) last = j; // 【修复】主动技能判断
+                }
+            }
+            
+            // 【修复】精确还原主线程的加成逻辑
+            if (last === -1) {
+                if (freq[14] > 0) { let m = base[60] < base[61] ? base[60] : base[61]; freq[14] += (freq[14] < m ? freq[14] : m); }
+                if (freq[15] > 0) { let m = base[62] < base[63] ? base[62] : base[63]; freq[15] += (freq[15] < m ? freq[15] : m); }
+            } else if (last === 14) {
+                freq[14] <<= 1;
+                if (freq[15] > 0) { let m = base[62] < base[63] ? base[62] : base[63]; freq[15] += (freq[15] < m ? freq[15] : m); }
+            } else if (last === 15) {
+                freq[15] <<= 1;
+                if (freq[14] > 0) { let m = base[60] < base[61] ? base[60] : base[61]; freq[14] += (freq[14] < m ? freq[14] : m); }
+            } else {
+                freq[last] <<= 1;
+                if (freq[14] > 0) { let m = base[60] < base[61] ? base[60] : base[61]; freq[14] += (freq[14] < m ? freq[14] : m); }
+                if (freq[15] > 0) { let m = base[62] < base[63] ? base[62] : base[63]; freq[15] += (freq[15] < m ? freq[15] : m); }
+            }
+            
+            const x = new Array(46);
+            x[0] = hp; for (let i = 0; i < 7; i++) x[i + 1] = props[i];
+            for (let i = 0; i < 38; i++) x[i + 8] = 0;
+            let zd = 1, kill = 1;
+            for (let k = 0; k < 16; k++) {
+                const skId = skl_id[k], f = freq[k];
+                if (skId >= 35) continue;
+                if (skId == 9 || skId == 16) { x[skId+8] = zd * f; zd *= (1 - f * 0.3 / 128); }
+                else if (skId == 18) { x[skId+8] = zd * f; zd *= (1 - f * 0.35 / 128); }
+                else if (skId == 19 || skId == 23) { x[skId+8] = zd * f; zd *= (1 - f * 0.6 / 128); }
+                else if (skId == 20 || skId == 22) { x[skId+8] = zd * f; zd *= (1 - f * 0.7 / 128); }
+                else if (skId < 25) { x[skId+8] = zd * f; zd *= (1 - f * 1.0 / 128); }
+                else if (skId == 31 || skId == 32) { x[skId+8] = kill * f; kill *= (1 - f * 1.0 / 128); }
+                else { x[skId+8] = f; }
+            }
+            
+            if (x[32] > 0) {
+                for(let k=0; k<nLen-1; k++) shadowBuf[k] = nameBuf[k];
+                let suffix = '?shadow';
+                for(let k=0; k<suffix.length; k++) shadowBuf[nLen-1+k] = suffix.charCodeAt(k);
+                let sLen = nLen - 1 + suffix.length;
+                S2.set(S_team);
+                let j2 = 0, k2 = 0;
+                for(let i=0; i<256; i++) { j2 = (j2 + S2[i] + shadowBuf[k2]) & 0xFF; let tmp = S2[i]; S2[i] = S2[j2]; S2[j2] = tmp; k2++; if(k2 >= sLen) k2 = 0; }
+                j2 = 0; k2 = 0;
+                for(let i=0; i<256; i++) { j2 = (j2 + S2[i] + shadowBuf[k2]) & 0xFF; let tmp = S2[i]; S2[i] = S2[j2]; S2[j2] = tmp; k2++; if(k2 >= sLen) k2 = 0; }
+                
+                let cnt2 = 0;
+                for (let i = 0; i < 256 && cnt2 < 128; i++) { let m = (S2[i] * 181 + 160) & 0xFF; if (m >= 89 && m < 217) { base2[cnt2] = m & 63; cnt2++; } }
+                for(let i=0; i<10; i++) arr2[i] = base2[i]; arr2.sort((a,b)=>a-b);
+                let hp2 = 154 + arr2[3] + arr2[4] + arr2[5] + arr2[6];
+                
+                let atk2 = med3(base2[10], base2[11], base2[12]);
+                let def2 = med3(base2[13], base2[14], base2[15]);
+                let spd2 = med3(base2[16], base2[17], base2[18]);
+                let agi2 = med3(base2[19], base2[20], base2[21]);
+                let mag2 = med3(base2[22], base2[23], base2[24]);
+                let res2 = med3(base2[25], base2[26], base2[27]);
+                let intel2 = med3(base2[28], base2[29], base2[30]);
+                
+                const shadowi = atk2*2.8 + def2*0.6 + spd2*2.5 + agi2*1.2 + mag2 + res2 - 1.2*intel2 + 0.8*hp2;
+                x[43] = shadowi * 1.0 * x[32] / 100;
+            } else { x[43] = 0; }
+            
+            if (x[42] > 0) x[44] = 1;
+            if (x[37] > 0) { x[45] = x[26]; x[26] = 0; }
+            
+            const xp_x = new Array(46), xp_array = new Array(1125);
+            for (let i = 0; i <= 45; i++) xp_x[i] = x[i];
+            let cnt3 = 1;
+            for (let i = 0; i < 46; i++) xp_array[++cnt3] = xp_x[i];
+            for (let i = 0; i < 46; i++) {
+                for (let j = i; j < 46; j++) {
+                    if ((!(i==26 && j==37)) && (!(i==26 && j==45)) && (!(i==42 && j==44)) && (!(i==44 && j==44))) {
+                        xp_array[++cnt3] = xp_x[i] * xp_x[j];
+                    }
+                }
+            }
+            xp_array[1] = 1;
+            
+            let scoreQP = 0, scoreQD = 0, scorePP = 0;
+            for (let i = 0; i < 1124; i++) {
+                scoreQP += modelData.qp0[i] * xp_array[i+1];
+                scoreQD += modelData.qd0[i] * xp_array[i+1];
+                scorePP += modelData.pp0[i] * xp_array[i+1];
+            }
+            let scoreCQD1 = 0, scoreCQD2 = 0;
+            for (let i = 0; i < 1124; i++) scoreCQD2 += modelData.cqd0[i] * xp_array[i+1];
+            if (x[32] >= 30) { for (let i = 0; i < 1124; i++) scoreCQD1 += modelData.cqd3[i] * xp_array[i+1]; }
+            const scoreCQD = Math.max(scoreCQD1, scoreCQD2) * 100;
+            
+            // 八围必满足，四项至少满足一项
+            let passed = false;
+            let s_name = prefix + n + "@" + team;
+            let detail = s_name + " | 八围:" + e8.toFixed(2);
+            
+            if (scoreQP >= th_sqp) { passed = true; detail += " | SQP:" + parseInt(scoreQP+0.5); }
+            if (scoreQD >= th_sqd) { passed = true; detail += " | SQD:" + parseInt(scoreQD+0.5); }
+            if (scorePP >= th_spp) { passed = true; detail += " | SPP:" + parseInt(scorePP+0.5); }
+            if (scoreCQD >= th_scqd) { passed = true; detail += " | SCQD:" + parseInt(scoreCQD+0.5); }
+            
+            if (passed) {
+                validNames.push(s_name);
+                validDetails.push(detail);
+            }
+            
+            if (processed % 50000 === 0) self.postMessage({type: 'progress', count: 50000});
+        }
+        self.postMessage({ type: 'done', names: validNames, details: validDetails, count: processed % 50000 });
+    }
+};
+`;
+
+const workerUrl = URL.createObjectURL(new Blob([workerCode], {type: 'application/javascript'}));
+
+// ================= 战力评测主线程调度 =================
+function startEval() {
+    if (!modelData) return alert("模型尚未加载完毕！");
+    
+    let prefix = document.getElementById('ev_prefix').value.trim();
+    let team = document.getElementById('ev_team').value.trim();
+    let unit = parseInt(document.getElementById('ev_unit').value);
+    let start = Math.round(parseFloat(document.getElementById('ev_start').value) * unit);
+    let end = Math.round(parseFloat(document.getElementById('ev_end').value) * unit);
+    
+    if (start >= end) return alert("起始值必须小于结束值！");
+    
+    let th_e8 = parseFloat(document.getElementById('ev_th_e8').value) || 0;
+    let th_sqp = parseFloat(document.getElementById('ev_th_sqp').value) || -9999999;
+    let th_sqd = parseFloat(document.getElementById('ev_th_sqd').value) || -9999999;
+    let th_spp = parseFloat(document.getElementById('ev_th_spp').value) || -9999999;
+    let th_scqd = parseFloat(document.getElementById('ev_th_scqd').value) || -9999999;
+    
+    let threads = parseInt(document.getElementById('ev_threads').value);
+    let chunkSize = Math.ceil((end - start) / threads);
+    
+    let btn = document.getElementById('ev_runBtn');
+    let prog = document.getElementById('ev_prog');
+    
+    btn.disabled = true;
+    prog.innerText = "多线程区间跑号启动中 (" + threads + " 线程)...";
+    
+    let outDetail = document.getElementById('ev_out_detail');
+    let outNames = document.getElementById('ev_out_names');
+    outDetail.value = ""; outNames.value = "";
+    
+    let validNamesSet = new Set();
+    let detailArr = []; 
+    let totalProcessed = 0;
+    let totalCount = end - start + 1;
+    let finishedThreads = 0;
+    
+    function updateProgress() {
+        let p = Math.min(100, (totalProcessed / totalCount) * 100).toFixed(1);
+        prog.innerText = "测算进度: " + p + "% ( " + totalProcessed + " / " + totalCount + " )";
+    }
+
+    function checkFinished() {
+        if (finishedThreads === threads) {
+            btn.disabled = false;
+            prog.innerText = "✅ 测算完成，已筛出 " + validNamesSet.size + " 个号。";
+            outDetail.value = detailArr.join('\n');
+            outNames.value = Array.from(validNamesSet).join('\n');
+        }
+    }
+    
+    for (let t = 0; t < threads; t++) {
+        let wStart = start + t * chunkSize;
+        let wEnd = Math.min(start + (t + 1) * chunkSize - 1, end);
+        
+        if (wStart > wEnd) { 
+            finishedThreads++; 
+            checkFinished();
+            continue; 
+        }
+        
+        let worker = new Worker(workerUrl);
+        worker.onmessage = function(e) {
+            if (e.data.type === 'progress') {
+                totalProcessed += e.data.count;
+                updateProgress();
+            } else if (e.data.type === 'done') {
+                totalProcessed += e.data.count;
+                e.data.names.forEach(n => validNamesSet.add(n));
+                if(e.data.details.length > 0) {
+                    detailArr = detailArr.concat(e.data.details);
+                }
+                finishedThreads++;
+                worker.terminate();
+                updateProgress();
+                checkFinished();
+            }
+        };
+        
+        worker.postMessage({
+            type: 'start', start: wStart, end: wEnd, prefix: prefix, team: team,
+            th_e8: th_e8, th_sqp: th_sqp, th_sqd: th_sqd, th_spp: th_spp, th_scqd: th_scqd,
+            models: modelData
+        });
+    }
+}
+</script>
+</body>
+</html>
