@@ -1,0 +1,1524 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Namerena 极速工具</title>
+<style>
+    :root {
+        --bg: #ffffff;
+        --bg-card: #ffffff;
+        --bg-input: #ffffff;
+        --text: #111111;
+        --text-dim: #6b7280;
+        --blue: #3b82f6;
+        --blue-hover: #2563eb;
+        --light-blue: #eff6ff;
+        --border: #e5e7eb;
+        --border-light: #f3f4f6;
+        --shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    body.dark {
+        --bg: #0a0a0a;
+        --bg-card: #171717;
+        --bg-input: #0a0a0a;
+        --text: #f3f3f3;
+        --text-dim: #9ca3af;
+        --blue: #60a5fa;
+        --blue-hover: #93c5fd;
+        --light-blue: #1e3a8a;
+        --border: #262626;
+        --border-light: #1f1f1f;
+        --shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+    * { box-sizing: border-box; }
+    html { height: 100%; }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+        background: transparent;
+        color: var(--text);
+        margin: 0;
+        padding: 0;
+        min-height: 100%;
+        transition: color 0.25s;
+        -webkit-font-smoothing: antialiased;
+    }
+
+    /* ============ 背景层 ============ */
+    #bg-base {
+        position: fixed; inset: 0;
+        background: var(--bg);
+        z-index: -3;
+        transition: background 0.3s;
+    }
+    .bg-layer {
+        position: fixed; inset: 0;
+        z-index: -2;
+        overflow: hidden;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.5s;
+    }
+    body[data-bg="fluid"] .bg-layer.fluid { opacity: 1; }
+    body[data-bg="gold"] .bg-layer.gold { opacity: 1; }
+    .bg-layer.paused .blob { animation-play-state: paused; }
+
+    .blob { position: absolute; border-radius: 50%; will-change: transform; }
+
+    .fluid .b1 {
+        width: 75vmax; height: 75vmax; top: -25vmax; left: -25vmax;
+        background: radial-gradient(circle, rgba(59,130,246,0.38) 0%, rgba(59,130,246,0) 65%);
+        animation: drift1 26s ease-in-out infinite alternate;
+    }
+    .fluid .b2 {
+        width: 65vmax; height: 65vmax; bottom: -22vmax; right: -18vmax;
+        background: radial-gradient(circle, rgba(147,51,234,0.28) 0%, rgba(147,51,234,0) 65%);
+        animation: drift2 33s ease-in-out infinite alternate;
+    }
+    .fluid .b3 {
+        width: 55vmax; height: 55vmax; top: 35%; left: 42%;
+        background: radial-gradient(circle, rgba(6,182,212,0.24) 0%, rgba(6,182,212,0) 65%);
+        animation: drift3 39s ease-in-out infinite alternate;
+    }
+    body.dark .fluid .b1 { background: radial-gradient(circle, rgba(96,165,250,0.30) 0%, rgba(96,165,250,0) 65%); }
+    body.dark .fluid .b2 { background: radial-gradient(circle, rgba(168,85,247,0.24) 0%, rgba(168,85,247,0) 65%); }
+    body.dark .fluid .b3 { background: radial-gradient(circle, rgba(34,211,238,0.18) 0%, rgba(34,211,238,0) 65%); }
+
+    .gold .b1 {
+        width: 80vmax; height: 80vmax; top: -28vmax; left: -22vmax;
+        background: radial-gradient(circle, rgba(249,115,22,0.42) 0%, rgba(249,115,22,0) 65%);
+        animation: drift1 30s ease-in-out infinite alternate;
+    }
+    .gold .b2 {
+        width: 70vmax; height: 70vmax; bottom: -26vmax; right: -20vmax;
+        background: radial-gradient(circle, rgba(245,158,11,0.36) 0%, rgba(245,158,11,0) 65%);
+        animation: drift2 37s ease-in-out infinite alternate;
+    }
+    .gold .b3 {
+        width: 60vmax; height: 60vmax; top: 30%; left: 48%;
+        background: radial-gradient(circle, rgba(217,70,239,0.28) 0%, rgba(217,70,239,0) 65%);
+        animation: drift3 42s ease-in-out infinite alternate;
+    }
+    body.dark .gold .b1 { background: radial-gradient(circle, rgba(251,146,60,0.30) 0%, rgba(251,146,60,0) 65%); }
+    body.dark .gold .b2 { background: radial-gradient(circle, rgba(250,204,21,0.24) 0%, rgba(250,204,21,0) 65%); }
+    body.dark .gold .b3 { background: radial-gradient(circle, rgba(232,121,249,0.20) 0%, rgba(232,121,249,0) 65%); }
+
+    @keyframes drift1 { 0% { transform: translate(0,0) scale(1); } 100% { transform: translate(28vmax, 18vmax) scale(1.22); } }
+    @keyframes drift2 { 0% { transform: translate(0,0) scale(1.1); } 100% { transform: translate(-24vmax, -20vmax) scale(0.88); } }
+    @keyframes drift3 { 0% { transform: translate(0,0) scale(1); } 100% { transform: translate(-18vmax, 26vmax) scale(1.18); } }
+
+    /* ============ 导航栏 - 固定顶部 ============ */
+    .navbar {
+        position: fixed;
+        top: 0; left: 0; right: 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 20px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg);
+        z-index: 1000;
+        box-shadow: var(--shadow);
+    }
+    .nav-tabs { display: flex; gap: 6px; overflow-x: auto; flex: 1; }
+    .nav-tab {
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        background: transparent;
+        border: 1px solid transparent;
+        color: var(--text-dim);
+        transition: all 0.15s;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+    .nav-tab:hover { color: var(--text); }
+    .nav-tab.active {
+        background: var(--light-blue);
+        color: var(--blue);
+        border-color: var(--blue);
+    }
+    .nav-actions { display: flex; gap: 8px; flex-shrink: 0; margin-left: 10px; }
+    .icon-btn {
+        padding: 8px 14px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        color: var(--text);
+        transition: all 0.15s;
+    }
+    .icon-btn:hover { background: var(--light-blue); border-color: var(--blue); color: var(--blue); }
+
+    /* ============ 容器 ============ */
+    .container { max-width: 1000px; margin: 0 auto; padding: 72px 20px 20px; }
+    .page { display: none; }
+    .page.active { display: block; animation: fadeIn 0.25s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* ============ 卡片 ============ */
+    .card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 16px;
+        box-shadow: var(--shadow);
+    }
+    .card-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--text-dim);
+        margin: 0 0 14px 0;
+        letter-spacing: 0.5px;
+    }
+
+    /* ============ 表单 ============ */
+    .row { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
+    .row:last-child { margin-bottom: 0; }
+    .item { flex: 1; min-width: 110px; }
+    .item label {
+        display: block;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-dim);
+        margin-bottom: 6px;
+    }
+    input, select, textarea {
+        width: 100%;
+        padding: 9px 12px;
+        box-sizing: border-box;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--bg-input);
+        color: var(--text);
+        font-size: 14px;
+        font-family: inherit;
+        transition: all 0.15s;
+    }
+    input:focus, textarea:focus, select:focus {
+        outline: none;
+        border-color: var(--blue);
+        box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+    }
+    textarea {
+        resize: vertical;
+        height: 160px;
+        font-family: "SF Mono", Monaco, Consolas, monospace;
+        font-size: 12px;
+        line-height: 1.5;
+    }
+
+    /* ============ 按钮 ============ */
+    .actions { display: flex; gap: 10px; margin: 16px 0; flex-wrap: wrap; }
+    .btn-primary {
+        padding: 11px 24px;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+        background: linear-gradient(135deg, #3b82f6, #2563eb);
+        color: white;
+        flex: 1;
+        min-width: 180px;
+        box-shadow: 0 2px 8px rgba(59,130,246,0.3);
+        transition: all 0.15s;
+    }
+    .btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(59,130,246,0.4); }
+    .btn-primary:active:not(:disabled) { transform: translateY(0); }
+    .btn-primary:disabled { background: var(--border); color: var(--text-dim); cursor: not-allowed; box-shadow: none; }
+    .btn-danger {
+        padding: 11px 20px;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+        color: white;
+        box-shadow: 0 2px 8px rgba(239,68,68,0.3);
+    }
+    .btn-small {
+        padding: 6px 12px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        background: var(--bg-card);
+        color: var(--text-dim);
+        transition: all 0.15s;
+    }
+    .btn-small:hover { background: var(--light-blue); border-color: var(--blue); color: var(--blue); }
+
+    /* ============ 进度 ============ */
+    .prog {
+        font-size: 12px;
+        color: var(--text-dim);
+        margin: 12px 0;
+        padding: 12px;
+        background: var(--border-light);
+        border-radius: 8px;
+        font-family: "SF Mono", Monaco, Consolas, monospace;
+        line-height: 1.6;
+        word-break: break-all;
+    }
+
+    /* ============ 结果网格 ============ */
+    .results-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+    @media (max-width: 720px) { .results-grid { grid-template-columns: 1fr; } }
+    .result-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 16px;
+        box-shadow: var(--shadow);
+        position: relative;
+    }
+    .result-card::before {
+        content: ""; position: absolute; top: 0; left: 0; right: 0;
+        height: 3px; border-radius: 12px 12px 0 0;
+    }
+    .result-card.qp::before { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+    .result-card.qd::before { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
+    .result-card.pp::before { background: linear-gradient(90deg, #10b981, #34d399); }
+    .result-card.cqd::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+
+    .result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .result-title { font-size: 13px; font-weight: 700; color: var(--text); }
+    .result-title .badge {
+        display: inline-block; font-size: 11px; padding: 2px 8px;
+        border-radius: 10px; margin-left: 6px; font-weight: 600;
+    }
+    .qp .badge { background: #dbeafe; color: #1d4ed8; }
+    .qd .badge { background: #ede9fe; color: #6d28d9; }
+    .pp .badge { background: #d1fae5; color: #047857; }
+    .cqd .badge { background: #fef3c7; color: #b45309; }
+    body.dark .qp .badge { background: #1e3a8a; color: #93c5fd; }
+    body.dark .qd .badge { background: #4c1d95; color: #c4b5fd; }
+    body.dark .pp .badge { background: #064e3b; color: #6ee7b7; }
+    body.dark .cqd .badge { background: #78350f; color: #fcd34d; }
+
+    .result-card textarea { height: 200px; }
+
+    /* ============ 教程 ============ */
+    .tutorial h2 { font-size: 24px; margin: 0 0 20px 0; padding-bottom: 12px; border-bottom: 2px solid var(--border); }
+    .tutorial h3 { font-size: 18px; margin: 28px 0 12px 0; color: var(--text); }
+    .tutorial h3:first-child { margin-top: 0; }
+    .tutorial p, .tutorial li { font-size: 14px; line-height: 1.7; color: var(--text); }
+    .tutorial code { background: var(--border-light); padding: 2px 6px; border-radius: 4px; font-family: "SF Mono", Monaco, Consolas, monospace; font-size: 12.5px; color: var(--text); }
+    .tutorial ul, .tutorial ol { padding-left: 22px; margin: 12px 0; }
+    .tutorial li { margin-bottom: 8px; }
+    .tutorial .tip { padding: 12px 16px; background: var(--light-blue); border-left: 3px solid var(--blue); border-radius: 6px; margin: 16px 0; font-size: 13.5px; }
+    .tutorial .tip strong { color: var(--blue); }
+    .tutorial table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13.5px; }
+    .tutorial th, .tutorial td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+    .tutorial th { background: var(--border-light); font-weight: 700; color: var(--text); }
+</style>
+</head>
+<body data-bg="fluid">
+
+<div id="bg-base"></div>
+<div class="bg-layer fluid" id="bg-fluid">
+    <div class="blob b1"></div>
+    <div class="blob b2"></div>
+    <div class="blob b3"></div>
+</div>
+<div class="bg-layer gold" id="bg-gold">
+    <div class="blob b1"></div>
+    <div class="blob b2"></div>
+    <div class="blob b3"></div>
+</div>
+
+<nav class="navbar">
+    <div class="nav-tabs">
+        <button class="nav-tab active" data-page="filter">⚔️ 筛选</button>
+        <button class="nav-tab" data-page="parse">📊 解析号</button>
+        <button class="nav-tab" data-page="extract">🏷️ 提取名</button>
+        <button class="nav-tab" data-page="tutorial">📖 教程</button>
+    </div>
+    <div class="nav-actions">
+        <button class="icon-btn" id="bg-toggle" title="切换背景">🎨 背景</button>
+        <button class="icon-btn" id="theme-toggle" title="切换主题">🌓 主题</button>
+    </div>
+</nav>
+
+<main class="container">
+
+    <!-- ============ 筛选页 ============ -->
+    <section id="page-filter" class="page active">
+
+        <div class="card">
+            <h4 class="card-title">基础配置</h4>
+            <div class="row">
+                <div class="item"><label>前缀</label><input type="text" id="prefix" value="Fin"></div>
+                <div class="item"><label>战队（无 @）</label><input type="text" id="team" value="HYWZ"></div>
+                <div class="item"><label>线程数</label>
+                    <select id="threads">
+                        <option value="4">4 线程</option>
+                        <option value="6">6 线程</option>
+                        <option value="8" selected>8 线程</option>
+                    </select>
+                </div>
+                <div class="item"><label>块大小</label><input type="number" id="block" value="100000" step="10000" min="500"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h4 class="card-title">号段范围</h4>
+            <div class="row">
+                <div class="item"><label>起始号</label><input type="number" id="start" value="0" step="0.1"></div>
+                <div class="item"><label>结束号</label><input type="number" id="end" value="1" step="0.1"></div>
+                <div class="item"><label>单位</label>
+                    <select id="unit">
+                        <option value="100000">10w</option>
+                        <option value="1000000">100w</option>
+                        <option value="10000000">1000w</option>
+                        <option value="100000000" selected>1E</option>
+                    </select>
+                </div>
+                <div class="item"><label>八围剪枝阈值</label><input type="number" id="th_e8" value="672" step="0.01"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h4 class="card-title">评分阈值（留空 = 不启用该池）</h4>
+            <div class="row">
+                <div class="item"><label>SQP ≥</label><input type="number" id="th_sqp" value="5500" placeholder="不限"></div>
+                <div class="item"><label>SQD ≥</label><input type="number" id="th_sqd" value="6000" placeholder="不限"></div>
+                <div class="item"><label>SPP ≥</label><input type="number" id="th_spp" placeholder="不限"></div>
+                <div class="item"><label>SCQD ≥</label><input type="number" id="th_scqd" placeholder="不限"></div>
+            </div>
+        </div>
+
+        <div class="actions">
+            <button id="runBtn" class="btn-primary" disabled>开始筛选</button>
+            <button id="stopBtn" class="btn-danger" style="display:none" onclick="stopEval()">⏸ 暂停</button>
+            <button class="btn-small" id="importBtn" style="display:none" onclick="document.getElementById('fileInput').click()">📂 手动导入模型</button>
+            <input type="file" id="fileInput" multiple accept=".json,.txt,.js" style="display:none" onchange="handleFileUpload(event)">
+        </div>
+
+        <div id="prog" class="prog">正在初始化...</div>
+
+        <div class="results-grid">
+            <div class="result-card qp">
+                <div class="result-header">
+                    <div class="result-title">SQP 池<span class="badge" id="badge-qp">≥5500</span></div>
+                    <button class="btn-small" onclick="copyText('outQP')">📋</button>
+                </div>
+                <textarea id="outQP" readonly placeholder="SQP 达标的号（按 SQP 降序）..."></textarea>
+            </div>
+            <div class="result-card qd">
+                <div class="result-header">
+                    <div class="result-title">SQD 池<span class="badge" id="badge-qd">≥6000</span></div>
+                    <button class="btn-small" onclick="copyText('outQD')">📋</button>
+                </div>
+                <textarea id="outQD" readonly placeholder="SQD 达标的号（按 SQD 降序）..."></textarea>
+            </div>
+            <div class="result-card pp">
+                <div class="result-header">
+                    <div class="result-title">SPP 池<span class="badge" id="badge-pp">未启用</span></div>
+                    <button class="btn-small" onclick="copyText('outSPP')">📋</button>
+                </div>
+                <textarea id="outSPP" readonly placeholder="SPP 达标的号（按 SPP 降序）..."></textarea>
+            </div>
+            <div class="result-card cqd">
+                <div class="result-header">
+                    <div class="result-title">SCQD 池<span class="badge" id="badge-scqd">未启用</span></div>
+                    <button class="btn-small" onclick="copyText('outSCQD')">📋</button>
+                </div>
+                <textarea id="outSCQD" readonly placeholder="SCQD 达标的号（按 SCQD 降序）..."></textarea>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============ 解析号页 ============ -->
+    <section id="page-parse" class="page">
+        <div class="card">
+            <h4 class="card-title">输入名单（一行一个，支持 "前缀 数字@战队" 或 "数字@战队" 或 纯号）</h4>
+            <textarea id="parse_input" placeholder="Fin 136256@HYWZ&#10;Fin 295473@HYWZ&#10;Fin 3416206@HYWZ&#10;或 136256@HYWZ"></textarea>
+        </div>
+        <div class="actions">
+            <button id="parseBtn" class="btn-primary" onclick="startParse()">开始解析</button>
+            <button class="btn-small" onclick="copyText('parse_output')">📋 复制</button>
+            <button class="btn-small" onclick="document.getElementById('parse_input').value='';document.getElementById('parse_output').value='';">清空</button>
+        </div>
+        <div class="card">
+            <h4 class="card-title">解析结果</h4>
+            <textarea id="parse_output" readonly style="height: 500px" placeholder="解析结果将在此显示..."></textarea>
+        </div>
+    </section>
+
+    <!-- ============ 提取名页 ============ -->
+    <section id="page-extract" class="page">
+        <div class="card">
+            <h4 class="card-title">前缀补全（可选）</h4>
+            <div class="row">
+                <div class="item">
+                    <label>前缀（留空则不加，如填 HYY 则输出 "HYY 号@战队"）</label>
+                    <input type="text" id="ex_prefix" placeholder="例如 HYY 或 Fin">
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <h4 class="card-title">粘贴包含名字的大段文本</h4>
+            <textarea id="ex_input" placeholder="乱七八糟的前缀 HYY100@HYWZ 乱七八糟的后缀..."></textarea>
+        </div>
+        <div class="actions">
+            <button id="exBtn" class="btn-primary" onclick="startExtract()">开始提取</button>
+            <button class="btn-small" onclick="copyText('ex_output')">📋 复制</button>
+            <button class="btn-small" onclick="document.getElementById('ex_input').value='';document.getElementById('ex_output').value='';">清空</button>
+        </div>
+        <div class="card">
+            <h4 class="card-title">提取结果（自动去重）</h4>
+            <textarea id="ex_output" readonly style="height: 400px" placeholder="提取结果将在此显示..."></textarea>
+        </div>
+    </section>
+
+    <!-- ============ 教程页 ============ -->
+    <section id="page-tutorial" class="page">
+        <div class="card tutorial">
+            <h2>📖 Namerena 极速工具使用教程</h2>
+
+            <h3>一、工具简介</h3>
+            <p>本工具用于快速筛选 / 解析 Namerena 名字。包含三个功能：</p>
+            <ul>
+                <li><strong>⚔️ 筛选</strong>：在指定号段范围内，按评分阈值并行筛选达标号</li>
+                <li><strong>📊 解析号</strong>：输入一批具体号码，逐个输出详细属性、技能、四评分</li>
+                <li><strong>🏷️ 提取名</strong>：从大段文本中提取 <code>X@Y</code> 格式的名字</li>
+            </ul>
+
+            <h3>二、快速开始</h3>
+            <ol>
+                <li>等待筛选页顶部显示「✅ 模型加载完成」（约 3 秒）</li>
+                <li>选择功能页签</li>
+                <li>填写参数后点击运行</li>
+            </ol>
+
+            <div class="tip">
+                <strong>💡 提示：</strong>首次加载从云端拉取 5 个模型文件（qp0、qd0、pp0、cqd0、cqd3）。如果网络失败，可点击「📂 手动导入模型」。
+            </div>
+
+            <h3>三、筛选功能</h3>
+            <p>并行计算指定号段，四池独立判定：</p>
+            <table>
+                <tr><th>池</th><th>含义</th><th>默认阈值</th></tr>
+                <tr><td><strong style="color:#3b82f6">SQP</strong></td><td>综合战力</td><td>5500</td></tr>
+                <tr><td><strong style="color:#8b5cf6">SQD</strong></td><td>防御 / 耐久</td><td>6000</td></tr>
+                <tr><td><strong style="color:#10b981">SPP</strong></td><td>进攻型特化</td><td>不限</td></tr>
+                <tr><td><strong style="color:#f59e0b">SCQD</strong></td><td>幻术特化（幻术≥30 走 cqd3）</td><td>不限</td></tr>
+            </table>
+            <p><strong>所有阈值都可自由修改。</strong>留空 = 不启用该池。一个号可以同时命中多个池。</p>
+            <p><strong>八围剪枝阈值</strong>（默认 672）：未达标的号直接跳过评分计算，占 99.9% 以上，是速度的关键。要调就调输入框，不要改 0.3333 这个系数。</p>
+
+            <h3>四、解析号功能</h3>
+            <p>输入格式（一行一个）：</p>
+            <ul>
+                <li><code>Fin 136256@HYWZ</code>（带空格前缀）</li>
+                <li><code>136256@HYWZ</code>（无前缀）</li>
+                <li><code>Fin136256@HYWZ</code>（无空格前缀）</li>
+            </ul>
+            <p>输出内容：八围、八项属性、SQP/SQD/SPP/SCQD、技能列表（按频率降序）。</p>
+
+            <h3>五、提取名功能</h3>
+            <p>识别文本中所有 <code>[^\s@]+@[^\s@]+</code> 格式的片段（即"空格/@ 之前 → @ → 空格/@ 之后"），自动去重。</p>
+            <p>如果填了<strong>前缀</strong>，输出会变成 <code>前缀 号@战队</code>（自动剥离原前缀，避免重复）。</p>
+
+            <h3>六、暂停与继续</h3>
+            <p>点击「⏸ 暂停」可以中断筛选，已完成的块不会重跑。暂停后点「▶ 继续」从断点恢复，参数必须保持不变。</p>
+
+            <h3>七、背景与主题</h3>
+            <ul>
+                <li><strong>🎨 背景按钮</strong>：循环切换「无 → 流体 → 夕阳鎏金」</li>
+                <li><strong>🌓 主题按钮</strong>：切换亮 / 暗模式</li>
+                <li>所有设置自动保存到 localStorage</li>
+                <li><strong>跑号期间背景动画自动暂停</strong>，避免占用 GPU</li>
+            </ul>
+
+            <h3>八、性能提示</h3>
+            <ul>
+                <li>桌面 8 核：8 线程，实测约 150 万号/秒</li>
+                <li>iPad：建议 4-6 线程（8 线程会抢 4 个性能核反而不快）</li>
+                <li>跑大号段会自动保持屏幕常亮（Wake Lock）</li>
+                <li>块大小 100000 是平衡速度和不均衡的最佳值</li>
+            </ul>
+
+            <h3>九、常见问题</h3>
+            <p><strong>Q：结果和 main.js 有差异？</strong><br>A：本工具严格复刻 main.js 的 soption=3 分支。如不一致请反馈具体号。</p>
+            <p><strong>Q：跑 1E 号需要多久？</strong><br>A：8 核桌面约 60-65 秒。iPad 约 2-5 分钟。</p>
+            <p><strong>Q：进度卡在加载模型？</strong><br>A：云端超时，点击「📂 手动导入模型」选 5 个文件。</p>
+        </div>
+    </section>
+</main>
+
+<script>
+// ============ 全局常量 ============
+const N = 256, M = 128, K = 64, skill_cnt = 40;
+const encoder = new TextEncoder();
+function getUTF8Bytes(str) { return [...encoder.encode(str)]; }
+function max(a, b) { return a > b ? a : b; }
+function min(a, b) { return a > b ? b : a; }
+
+const SKILL_NAMES = ["火球","冰冻","雷击","地裂","吸血","投毒","连击","会心","瘟疫","命轮","狂暴","魅惑","加速","减速","诅咒","治愈","苏生","净化","铁壁","蓄力","聚气","潜行","血祭","分身","幻术","防御","守护","反弹","护符","护盾","反击","吞噬","亡灵","垂死","隐匿"];
+
+// ============ 主题/背景 ============
+const bgModes = ['none', 'fluid', 'gold'];
+let bgIndex = parseInt(localStorage.getItem('nbg') || '1');
+document.body.dataset.bg = bgModes[bgIndex];
+if (localStorage.getItem('ndark') === '1') document.body.classList.add('dark');
+
+document.getElementById('bg-toggle').addEventListener('click', function() {
+    bgIndex = (bgIndex + 1) % bgModes.length;
+    document.body.dataset.bg = bgModes[bgIndex];
+    localStorage.setItem('nbg', bgIndex);
+});
+document.getElementById('theme-toggle').addEventListener('click', function() {
+    document.body.classList.toggle('dark');
+    localStorage.setItem('ndark', document.body.classList.contains('dark') ? '1' : '0');
+});
+
+// ============ 页面切换 ============
+document.querySelectorAll('.nav-tab').forEach(tab => {
+    tab.addEventListener('click', function() {
+        document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        this.classList.add('active');
+        document.getElementById('page-' + this.dataset.page).classList.add('active');
+    });
+});
+
+// ============ Wake Lock ============
+let wakeLock = null;
+async function keepAwake() {
+    if (!('wakeLock' in navigator)) return;
+    try { wakeLock = await navigator.wakeLock.request('screen'); } catch(e) {}
+}
+document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'visible' && runState && runState.running) keepAwake();
+});
+
+// ============ 工具 ============
+function copyText(id) {
+    let el = document.getElementById(id);
+    let text = el.value;
+    if (!text) return alert("暂无内容");
+    let temp = document.createElement("textarea");
+    temp.value = text; temp.style.position = "absolute"; temp.style.left = "-9999px";
+    document.body.appendChild(temp);
+    temp.select(); temp.setSelectionRange(0, 999999);
+    try { document.execCommand("copy"); alert("已复制"); } catch(e) { alert("复制失败"); }
+    document.body.removeChild(temp);
+}
+
+// ============ Name 类（主线程解析用，完整 main.js 逻辑） ============
+function Name() {
+    this.val = new Array(N); this.val_base = new Array(N); this.name_base = new Array(M);
+    this.freq = new Array(skill_cnt); this.skill = new Array(skill_cnt);
+    this.p = 0; this.q = 0; this.q_len = 0;
+
+    this.m = function () {
+        this.q += this.val[++this.p]; if(this.q>255)this.q=this.q%256;
+        var tmp = this.val[this.q]; this.val[this.q] = this.val[this.p]; this.val[this.p] = tmp;
+        return this.val[(this.val[this.p] + this.val[this.q]) & 255];
+    }
+    this.gen = function () { var u = this.m(); return (u << 8 | this.m()) % skill_cnt; }
+    this.load_team = function (steam) {
+        var team = getUTF8Bytes(steam), t_len = team.length + 1, s = 0;
+        for (var x in team) team[x] -= 256;
+        for (let i = 0; i < N; i++) { this.val_base[i] = i }
+        for (let i = 0; i < N; ++i) {
+            if (i % t_len != 0) { s += team[i % t_len - 1]; if (s < 0) s += 256; }
+            s += this.val_base[i]; s = s % 256;
+            var tmp = this.val_base[s]; this.val_base[s] = this.val_base[i]; this.val_base[i] = tmp;
+        }
+    }
+    this.load_name = function (sname) {
+        var name = getUTF8Bytes(sname), n_len = name.length + 1; this.q_len = 0;
+        this.val = this.val_base.slice();
+        var s = 0;
+        for (let a = 0; a < 2; a++) {
+            s = 0;
+            for (let i = 0; i < N; i++) {
+                if (i % n_len != 0) s += name[i % n_len - 1];
+                s += this.val[i]; s = s % 256;
+                var tmp = this.val[s]; this.val[s] = this.val[i]; this.val[i] = tmp;
+            }
+        }
+        for (let i = 0; i < N; i++) {
+            var m = this.val[i] * 181 + 160; m = m % 256;
+            if (m >= 89 && m < 217) { this.name_base[this.q_len] = m & 63; this.q_len++; }
+        }
+    }
+    this.calc_props = function () {
+        var r = this.name_base.slice(0, 10);
+        var props = new Array(8); var p_cnt = 0;
+        for (this.p = 10, this.q = 31; this.p < this.q; this.p += 3) {
+            let a = this.name_base[this.p], b = this.name_base[this.p+1], c = this.name_base[this.p+2];
+            props[p_cnt++] = max(min(a, b), min(max(a, b), c));
+        }
+        r.sort(function (ax, bx) { return ax - bx }); props[p_cnt++] = 154;
+        for (let i = 3; i < 7; i++) props[p_cnt - 1] += r[i];
+        return props;
+    }
+    this.calc_skills = function () {
+        for (let i = 0; i < skill_cnt; i++) this.skill[i] = i;
+        for (let x = 0; x < skill_cnt; x++) this.freq[x] = 0;
+        this.p = 0; this.q = 0; var s = 0;
+        for (let zz = 0; zz < 2; zz++) {
+            for (let i = 0; i < skill_cnt; i++) {
+                s = (s + this.gen() + this.skill[i]) % skill_cnt;
+                var tmp = this.skill[s]; this.skill[s] = this.skill[i]; this.skill[i] = tmp;
+            }
+        }
+        var last = -1;
+        for (let i = 0, j = 0; i < K; i += 4, j++) {
+            var p = Math.min(this.name_base[i+K], this.name_base[i+1+K], this.name_base[i+2+K], this.name_base[i+3+K]);
+            if (p > 10 && this.skill[j] < 35) {
+                this.freq[j] = p - 10; if (this.skill[j] < 25) last = j;
+            }
+        }
+        if (last != -1) this.freq[last] <<= 1;
+        if (this.freq[14] && last != 14) this.freq[14] += Math.min(this.name_base[60], this.name_base[61], this.freq[14]);
+        if (this.freq[15] && last != 15) this.freq[15] += Math.min(this.name_base[62], this.name_base[63], this.freq[15]);
+    }
+}
+
+// ============ 模型 ============
+let modelData = null;
+
+async function loadModels() {
+    let prog = document.getElementById('prog');
+    prog.innerText = "正在从云端加载模型 (8s超时)...";
+    const files = ["qp0", "qd0", "pp0", "cqd0", "cqd3"];
+    let ok = 0;
+    try {
+        const promises = files.map(async (name) => {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 8000);
+            try {
+                let res = await fetch("https://hywzcyh.github.io/NrD/" + name, { signal: controller.signal });
+                if(!res.ok) throw new Error("HTTP " + res.status);
+                let text = await res.text();
+                let arr;
+                if (text.startsWith('[')) {
+                    try { arr = JSON.parse(text); } catch(e) { arr = new Function('return ' + text)(); }
+                } else {
+                    let m = text.match(/\[[\s\S]*\]/);
+                    if(m) arr = new Function('return ' + m[0])();
+                }
+                if (!arr || !arr.length) throw new Error("数据解析失败");
+                let f64 = new Float64Array(arr);
+                ok++;
+                prog.innerText = "加载模型... (" + ok + "/" + files.length + ")";
+                return { name, f64 };
+            } finally {
+                clearTimeout(timeoutId);
+            }
+        });
+        let results = await Promise.all(promises);
+        modelData = {};
+        results.forEach(r => { modelData[r.name] = r.f64; });
+        prog.innerText = "✅ 模型加载完成";
+        document.getElementById('runBtn').disabled = false;
+        document.getElementById('parseBtn').disabled = false;
+    } catch (e) {
+        prog.innerText = "❌ 云端加载失败，请手动导入 qp0 / qd0 / pp0 / cqd0 / cqd3 五个文件";
+        document.getElementById('importBtn').style.display = "inline-block";
+    }
+}
+
+function handleFileUpload(event) {
+    let files = event.target.files;
+    if(!files || files.length === 0) return;
+    let prog = document.getElementById('prog');
+    let tempData = {};
+    let readCount = 0;
+    for (let i = 0; i < files.length; i++) {
+        let file = files[i];
+        let reader = new FileReader();
+        reader.onload = function(e) {
+            let text = e.target.result;
+            let arr;
+            if (text.startsWith('[')) {
+                try { arr = JSON.parse(text); } catch(err) { arr = new Function('return ' + text)(); }
+            } else {
+                let m = text.match(/\[[\s\S]*\]/);
+                if(m) arr = new Function('return ' + m[0])();
+            }
+            let f64 = new Float64Array(arr);
+            let fname = file.name.toLowerCase();
+            if (fname.includes('qp0')) tempData.qp0 = f64;
+            else if (fname.includes('qd0')) tempData.qd0 = f64;
+            else if (fname.includes('pp0')) tempData.pp0 = f64;
+            else if (fname.includes('cqd0')) tempData.cqd0 = f64;
+            else if (fname.includes('cqd3')) tempData.cqd3 = f64;
+            readCount++;
+            if (readCount === files.length) {
+                if (tempData.qp0 && tempData.qd0 && tempData.pp0 && tempData.cqd0 && tempData.cqd3) {
+                    modelData = tempData;
+                    prog.innerText = "✅ 模型导入成功";
+                    document.getElementById('runBtn').disabled = false;
+                    document.getElementById('parseBtn').disabled = false;
+                    document.getElementById('importBtn').style.display = "none";
+                } else {
+                    prog.innerText = "❌ 文件不全，需要 qp0 / qd0 / pp0 / cqd0 / cqd3";
+                }
+            }
+        };
+        reader.readAsText(file);
+    }
+}
+
+// ============ 单号完整评分（主线程，main.js soption=3 逻辑） ============
+function calcAllEvalInfo(nameStr, teamStr) {
+    if (!modelData) return null;
+    let nm = new Name();
+    nm.load_team(teamStr);
+    nm.load_name(nameStr);
+
+    let props = nm.calc_props();
+    let e8 = props[7] * 0.3333333333333333
+        + (props[0] + 36) + (props[1] + 36) + (props[2] + 36) + (props[3] + 36)
+        + (props[4] + 36) + (props[5] + 36) + (props[6] + 36);
+
+    nm.calc_skills();
+
+    const x = new Float64Array(46);
+    x[0] = props[7];
+    for (let i = 0; i < 7; i++) x[i + 1] = props[i] + 36;
+
+    let zd = 1, kill = 1;
+    for (let k = 0; k < 16; k++) {
+        const skId = nm.skill[k], f = nm.freq[k];
+        if (skId >= 35 || f === 0) continue;
+        if (skId == 9 || skId == 16) { x[skId+8] = zd * f; zd *= (1 - f * 0.00234375); }
+        else if (skId == 18) { x[skId+8] = zd * f; zd *= (1 - f * 0.002734375); }
+        else if (skId == 19 || skId == 23) { x[skId+8] = zd * f; zd *= (1 - f * 0.0046875); }
+        else if (skId == 20 || skId == 22) { x[skId+8] = zd * f; zd *= (1 - f * 0.00546875); }
+        else if (skId < 25) { x[skId+8] = zd * f; zd *= (1 - f * 0.0078125); }
+        else if (skId == 31 || skId == 32) { x[skId+8] = kill * f; kill *= (1 - f * 0.0078125); }
+        else { x[skId+8] = f; }
+    }
+
+    // 护盾非线性
+    if (x[37] <= 70) x[37] = x[37] * x[37] / 70;
+    else x[37] = x[37] * 2 - 70;
+
+    // Shadow
+    if (x[32] > 0) {
+        let nm2 = new Name();
+        nm2.load_team(teamStr);
+        nm2.load_name(nameStr + '?shadow');
+        let p2 = nm2.calc_props();
+        const shadowi = p2[0]*2.8 + p2[1]*0.6 + p2[2]*2.5 + p2[3]*1.2 + p2[4] + p2[5] - 1.2*p2[6] + 0.8*p2[7];
+        x[43] = shadowi * 1.0 * x[32] / 100;
+    } else x[43] = 0;
+
+    if (x[42] > 0) x[44] = 1;
+    if (x[37] > 0) { x[45] = x[26]; x[26] = 0; }
+
+    // 全量二次型（与 main.js 完全一致）
+    const xp = new Float64Array(1125);
+    let cnt = 1;
+    for (let i = 0; i < 46; i++) xp[++cnt] = x[i];
+    for (let i = 0; i < 46; i++) {
+        for (let j = i; j < 46; j++) {
+            if ((i === 26 && j === 37) || (i === 26 && j === 45) || (i === 42 && j === 44) || (i === 44 && j === 44)) continue;
+            xp[++cnt] = x[i] * x[j];
+        }
+    }
+    xp[1] = 1;
+
+    let scoreQP = 0, scoreQD = 0, scorePP = 0, scoreCQD2 = 0;
+    for (let i = 0; i < 1124; i++) {
+        const v = xp[i+1];
+        scoreQP += modelData.qp0[i] * v;
+        scoreQD += modelData.qd0[i] * v;
+        scorePP += modelData.pp0[i] * v;
+        scoreCQD2 += modelData.cqd0[i] * v;
+    }
+
+    let scoreCQD1 = 0;
+    if (x[32] >= 30) {
+        for (let i = 0; i < 1124; i++) scoreCQD1 += modelData.cqd3[i] * xp[i+1];
+    }
+    const scoreCQD = (scoreCQD1 > scoreCQD2 ? scoreCQD1 : scoreCQD2) * 100;
+
+    let skillsList = [];
+    for (let k = 0; k < 16; k++) {
+        const skId = nm.skill[k], f = nm.freq[k];
+        if (f > 0 && skId < 35) skillsList.push({ id: skId, freq: f });
+    }
+    skillsList.sort((a, b) => b.freq - a.freq);
+
+    return {
+        e8: e8,
+        sqp: scoreQP, sqd: scoreQD, spp: scorePP, scqd: scoreCQD,
+        hp: props[7], atk: props[0]+36, def: props[1]+36, spd: props[2]+36,
+        agi: props[3]+36, mag: props[4]+36, res: props[5]+36, intel: props[6]+36,
+        skills: skillsList
+    };
+}
+
+// ============ 解析号 ============
+function startParse() {
+    if (!modelData) return alert("模型尚未加载完毕！");
+    const input = document.getElementById('parse_input').value.trim();
+    if (!input) return alert("请输入名字");
+    const lines = input.split('\n').map(s => s.trim()).filter(s => s);
+
+    let out = "";
+    for (const line of lines) {
+        const at = line.indexOf('@');
+        let nameStr, teamStr;
+        if (at >= 0) {
+            nameStr = line.slice(0, at).trim();
+            teamStr = line.slice(at + 1).trim();
+        } else {
+            nameStr = line;
+            teamStr = line;
+        }
+        const info = calcAllEvalInfo(nameStr, teamStr);
+        if (!info) { out += line + " | 解析失败\n\n"; continue; }
+        const skStr = info.skills.map(sk => SKILL_NAMES[sk.id] + ":" + sk.freq).join(' ');
+        out += nameStr + "@" + teamStr + " | 八围:" + info.e8.toFixed(2)
+            + " | HP:" + info.hp + " 攻:" + info.atk + " 防:" + info.def
+            + " 速:" + info.spd + " 敏:" + info.agi + " 魔:" + info.mag
+            + " 抗:" + info.res + " 智:" + info.intel + "\n";
+        out += "  SQP:" + ((info.sqp + 0.5) | 0)
+            + " SQD:" + ((info.sqd + 0.5) | 0)
+            + " SPP:" + ((info.spp + 0.5) | 0)
+            + " SCQD:" + ((info.scqd + 0.5) | 0) + "\n";
+        out += "  技能: " + (skStr || '无') + "\n\n";
+    }
+    document.getElementById('parse_output').value = out;
+}
+
+// ============ 提取名 ============
+function startExtract() {
+    const txt = document.getElementById('ex_input').value;
+    const prefix = document.getElementById('ex_prefix').value.trim();
+    const match = txt.match(/[^\s@]+@[^\s@]+/g);
+    if (!match || !match.length) {
+        document.getElementById('ex_output').value = "未提取到有效名字。";
+        return;
+    }
+    let uniq = [...new Set(match)];
+    if (prefix) {
+        uniq = uniq.map(n => {
+            const at = n.indexOf('@');
+            let head = n.slice(0, at), tail = n.slice(at);
+            if (head.startsWith(prefix)) head = head.slice(prefix.length);
+            return prefix + " " + head + tail;
+        });
+    }
+    document.getElementById('ex_output').value = uniq.join('\n');
+}
+
+// ============ 筛选逻辑 ============
+let runState = null;
+
+function readParams() {
+    const unit = parseInt(document.getElementById('unit').value);
+    const parseTh = (id) => {
+        const v = document.getElementById(id).value.trim();
+        if (v === '') return null;
+        const n = parseFloat(v);
+        return isNaN(n) ? null : n;
+    };
+    return {
+        prefix: document.getElementById('prefix').value.trim(),
+        team: document.getElementById('team').value.trim(),
+        start: Math.round(parseFloat(document.getElementById('start').value) * unit),
+        end: Math.round(parseFloat(document.getElementById('end').value) * unit),
+        th_e8: parseFloat(document.getElementById('th_e8').value) || 0,
+        BLOCK: Math.max(500, parseInt(document.getElementById('block').value) || 100000),
+        threads: parseInt(document.getElementById('threads').value),
+        th_sqp: parseTh('th_sqp'),
+        th_sqd: parseTh('th_sqd'),
+        th_spp: parseTh('th_spp'),
+        th_scqd: parseTh('th_scqd'),
+    };
+}
+
+function paramsEqual(a, b) {
+    return a.prefix === b.prefix && a.team === b.team
+        && a.start === b.start && a.end === b.end
+        && a.th_e8 === b.th_e8
+        && a.BLOCK === b.BLOCK && a.threads === b.threads
+        && a.th_sqp === b.th_sqp && a.th_sqd === b.th_sqd
+        && a.th_spp === b.th_spp && a.th_scqd === b.th_scqd;
+}
+
+function updateBadges(p) {
+    document.getElementById('badge-qp').innerText = p.th_sqp !== null ? '≥' + p.th_sqp : '未启用';
+    document.getElementById('badge-qd').innerText = p.th_sqd !== null ? '≥' + p.th_sqd : '未启用';
+    document.getElementById('badge-pp').innerText = p.th_spp !== null ? '≥' + p.th_spp : '未启用';
+    document.getElementById('badge-scqd').innerText = p.th_scqd !== null ? '≥' + p.th_scqd : '未启用';
+}
+
+['th_sqp', 'th_sqd', 'th_spp', 'th_scqd'].forEach(id => {
+    document.getElementById(id).addEventListener('input', function() {
+        updateBadges(readParams());
+    });
+});
+
+function stopEval() {
+    if (!runState || !runState.running) return;
+    runState.paused = true;
+    runState.running = false;
+    runState.accumulatedTime = (runState.accumulatedTime || 0) + (performance.now() - runState.runStartTime);
+
+    let minInflight = runState.nextStart;
+    for (let ws of runState.inFlight.values()) if (ws < minInflight) minInflight = ws;
+    runState.nextStart = minInflight;
+    runState.inFlight.clear();
+
+    for (let w of runState.activeWorkers) { try { w.terminate(); } catch(e) {} }
+    runState.activeWorkers = [];
+
+    document.getElementById('runBtn').disabled = false;
+    document.getElementById('runBtn').innerText = "▶ 继续 (从 " + runState.nextStart + ")";
+    document.getElementById('stopBtn').style.display = "none";
+    document.getElementById('prog').innerText = "⏸ 已暂停 | 已处理至 " + runState.nextStart + " / " + runState.end
+        + " | QP:" + runState.qpList.length + " QD:" + runState.qdList.length
+        + " SPP:" + runState.sppList.length + " SCQD:" + runState.scqdList.length;
+}
+
+window.onload = function() {
+    document.getElementById('runBtn').addEventListener('click', startEval);
+    updateBadges(readParams());
+    loadModels();
+};
+
+function startEval() {
+    if (!modelData) return alert("模型尚未加载完毕！");
+    const params = readParams();
+    if (params.start > params.end) return alert("起始值不能大于结束值！");
+    if (params.th_sqp === null && params.th_sqd === null && params.th_spp === null && params.th_scqd === null) {
+        return alert("至少启用一个评分阈值！");
+    }
+
+    let isContinue = runState && runState.paused
+        && paramsEqual(params, runState.params)
+        && runState.nextStart <= runState.end;
+
+    if (!isContinue) {
+        runState = {
+            params: params,
+            paused: false, running: false,
+            prefix: params.prefix, team: params.team,
+            start: params.start, end: params.end,
+            th_e8: params.th_e8, BLOCK: params.BLOCK, threads: params.threads,
+            th_sqp: params.th_sqp, th_sqd: params.th_sqd, th_spp: params.th_spp, th_scqd: params.th_scqd,
+            nextStart: params.start,
+            totalProcessed: 0,
+            totalCount: params.end - params.start + 1,
+            qpList: [], qdList: [], sppList: [], scqdList: [],
+            accumulatedTime: 0,
+            activeWorkers: [],
+            stoppedCount: 0,
+            modelsSentTo: null,
+            inFlight: new Map(),
+            lastRenderTime: 0,
+            speedSampleTime: 0, speedSampleCount: 0, instantSpeed: 0,
+        };
+        ['outQP','outQD','outSPP','outSCQD'].forEach(id => document.getElementById(id).value = "");
+    }
+
+    launchEval();
+}
+
+function launchEval() {
+    const hc = navigator.hardwareConcurrency || 8;
+    let threads = Math.min(runState.threads, hc);
+    if (threads < 1) threads = 1;
+
+    runState.running = true;
+    runState.stoppedCount = 0;
+    runState.activeWorkers = [];
+    runState.modelsSentTo = new WeakSet();
+    runState.inFlight = new Map();
+    runState.runStartTime = performance.now();
+
+    keepAwake();
+    document.querySelectorAll('.bg-layer').forEach(el => el.classList.add('paused'));
+
+    const btn = document.getElementById('runBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const prog = document.getElementById('prog');
+
+    btn.disabled = true;
+    stopBtn.style.display = "inline-block";
+    prog.innerText = "运行中 (" + threads + " 线程, 块 " + runState.BLOCK + ")...";
+
+    function totalElapsed() {
+        return (runState.accumulatedTime || 0) + (performance.now() - runState.runStartTime);
+    }
+
+    function updateProgress() {
+        let now = performance.now();
+        if (now - runState.lastRenderTime > 100) {
+            runState.lastRenderTime = now;
+            if (now - runState.speedSampleTime > 500) {
+                let dt = (now - runState.speedSampleTime) / 1000;
+                if (dt > 0) runState.instantSpeed = (runState.totalProcessed - runState.speedSampleCount) / dt;
+                runState.speedSampleTime = now;
+                runState.speedSampleCount = runState.totalProcessed;
+            }
+            let shown = Math.min(runState.totalProcessed, runState.totalCount);
+            let p = Math.min(100, (shown / runState.totalCount) * 100).toFixed(1);
+            let elapsed = totalElapsed() / 1000;
+            let avgSpeed = elapsed > 0 ? shown / elapsed : 0;
+            let eta = runState.instantSpeed > 0.5 ? (runState.totalCount - shown) / runState.instantSpeed : 0;
+            prog.innerText = "进度: " + p + "% (" + shown + " / " + runState.totalCount + ")"
+                + " | QP:" + runState.qpList.length
+                + " QD:" + runState.qdList.length
+                + " SPP:" + runState.sppList.length
+                + " SCQD:" + runState.scqdList.length
+                + " | 已用 " + elapsed.toFixed(1) + "s"
+                + " | 实时 " + runState.instantSpeed.toFixed(0) + "/s"
+                + " | 平均 " + avgSpeed.toFixed(0) + "/s"
+                + " | 剩余 " + eta.toFixed(1) + "s";
+        }
+    }
+
+    function finish() {
+        runState.qpList.sort((a, b) => b.v - a.v);
+        runState.qdList.sort((a, b) => b.v - a.v);
+        runState.sppList.sort((a, b) => b.v - a.v);
+        runState.scqdList.sort((a, b) => b.v - a.v);
+        document.getElementById('outQP').value = runState.qpList.map(x => x.s).join('\n');
+        document.getElementById('outQD').value = runState.qdList.map(x => x.s).join('\n');
+        document.getElementById('outSPP').value = runState.sppList.map(x => x.s).join('\n');
+        document.getElementById('outSCQD').value = runState.scqdList.map(x => x.s).join('\n');
+
+        let totalTime = totalElapsed() / 1000;
+        let shown = Math.min(runState.totalProcessed, runState.totalCount);
+        let avgSpeed = totalTime > 0 ? shown / totalTime : 0;
+
+        btn.disabled = false;
+        stopBtn.style.display = "none";
+        document.querySelectorAll('.bg-layer').forEach(el => el.classList.remove('paused'));
+
+        prog.innerText = "✅ 完成 | 处理 " + shown + " / " + runState.totalCount + " 号"
+            + " | QP:" + runState.qpList.length
+            + " QD:" + runState.qdList.length
+            + " SPP:" + runState.sppList.length
+            + " SCQD:" + runState.scqdList.length
+            + " | 总用时 " + totalTime.toFixed(2) + "s"
+            + " | 平均 " + avgSpeed.toFixed(0) + "/s";
+
+        runState.paused = false;
+        runState.running = false;
+        runState.inFlight.clear();
+        btn.innerText = "开始筛选";
+    }
+
+    function dispatchNext(worker) {
+        if (runState.nextStart > runState.end) {
+            worker.postMessage({ type: 'stop' });
+            return;
+        }
+        const ws = runState.nextStart;
+        const we = Math.min(ws + runState.BLOCK - 1, runState.end);
+        runState.nextStart = we + 1;
+        runState.inFlight.set(worker, ws);
+        const models = runState.modelsSentTo.has(worker) ? null : modelData;
+        runState.modelsSentTo.add(worker);
+        worker.postMessage({
+            type: 'start',
+            start: ws, end: we,
+            prefix: runState.prefix, team: runState.team,
+            th_e8: runState.th_e8,
+            th_sqp: runState.th_sqp !== null ? runState.th_sqp : -9999999,
+            th_sqd: runState.th_sqd !== null ? runState.th_sqd : -9999999,
+            th_spp: runState.th_spp !== null ? runState.th_spp : -9999999,
+            th_scqd: runState.th_scqd !== null ? runState.th_scqd : -9999999,
+            en_sqp: runState.th_sqp !== null ? 1 : 0,
+            en_sqd: runState.th_sqd !== null ? 1 : 0,
+            en_spp: runState.th_spp !== null ? 1 : 0,
+            en_scqd: runState.th_scqd !== null ? 1 : 0,
+            models: models
+        });
+    }
+
+    for (let t = 0; t < threads; t++) {
+        const worker = new Worker(workerUrl);
+        runState.activeWorkers.push(worker);
+
+        worker.onerror = function(e) {
+            console.error("Worker 崩溃:", e.message);
+            runState.stoppedCount++;
+            runState.inFlight.delete(worker);
+            try { worker.terminate(); } catch(_) {}
+            let idx = runState.activeWorkers.indexOf(worker);
+            if (idx >= 0) runState.activeWorkers.splice(idx, 1);
+            if (runState.stoppedCount === threads && runState.running) finish();
+        };
+
+        worker.onmessage = function(e) {
+            const d = e.data;
+            if (d.type === 'progress') {
+                runState.totalProcessed += d.count;
+                updateProgress();
+            } else if (d.type === 'done') {
+                runState.totalProcessed += d.count;
+                runState.inFlight.delete(worker);
+                for (let r of d.results) {
+                    let s_name = runState.prefix + " " + r.n + "@" + runState.team;
+                    if (r.pq) runState.qpList.push({ v: r.qp, s: s_name + " | 八围:" + r.e8.toFixed(2) + " | SQP:" + r.qp });
+                    if (r.pd) runState.qdList.push({ v: r.qd, s: s_name + " | 八围:" + r.e8.toFixed(2) + " | SQD:" + r.qd });
+                    if (r.ps) runState.sppList.push({ v: r.pp, s: s_name + " | 八围:" + r.e8.toFixed(2) + " | SPP:" + r.pp });
+                    if (r.pc) runState.scqdList.push({ v: r.cqd, s: s_name + " | 八围:" + r.e8.toFixed(2) + " | SCQD:" + r.cqd });
+                }
+                updateProgress();
+                dispatchNext(worker);
+            } else if (d.type === 'stopped') {
+                runState.stoppedCount++;
+                runState.inFlight.delete(worker);
+                try { worker.terminate(); } catch(_) {}
+                let idx = runState.activeWorkers.indexOf(worker);
+                if (idx >= 0) runState.activeWorkers.splice(idx, 1);
+                if (runState.stoppedCount === threads && runState.running) finish();
+            }
+        };
+
+        dispatchNext(worker);
+    }
+}
+
+// ============ Worker ============
+const workerCode = `
+const N = 256, M = 128, K = 64, skill_cnt = 40;
+const encoder = new TextEncoder();
+function getUTF8Bytes(str) { return [...encoder.encode(str)]; }
+
+const S = new Uint8Array(256);
+const base = new Uint8Array(128);
+const arr = new Uint8Array(10);
+const skl_init = new Uint8Array(40);
+for (let i = 0; i < 40; i++) skl_init[i] = i;
+const skl_id = new Uint8Array(40);
+const freq = new Uint8Array(40);
+const S2 = new Uint8Array(256);
+const base2 = new Uint8Array(128);
+const arr2 = new Uint8Array(10);
+const shadowBuf = new Uint8Array(256);
+const digitBuf = new Uint8Array(12);
+
+const x = new Float64Array(46);
+const active = new Uint8Array(46);
+const modelAOS = new Float64Array(1124 * 4);
+let cqd3;
+let modelReady = false;
+
+const mod40 = new Uint8Array(65536);
+for (let i = 0; i < 65536; i++) mod40[i] = i % 40;
+
+const pairIdx = new Int32Array(46 * 46).fill(-1);
+let p = 47;
+for (let i = 0; i < 46; i++) {
+    for (let j = i; j < 46; j++) {
+        if ((i === 26 && (j === 37 || j === 45)) || (i === 42 && j === 44) || (i === 44 && j === 44)) continue;
+        pairIdx[i * 46 + j] = p++;
+    }
+}
+
+const med3 = (a,b,c) => { let t; if(a>b){t=a;a=b;b=t;} if(b>c){t=b;b=c;c=t;} if(a>b){t=a;a=b;b=t;} return b; };
+
+self.onmessage = function(e) {
+    const d = e.data;
+    if (d.type === 'stop') { self.postMessage({ type: 'stopped' }); return; }
+    if (d.type !== 'start') return;
+
+    if (!modelReady) {
+        const models = d.models;
+        if (!models) return;
+        const qp0 = models.qp0, qd0 = models.qd0, pp0 = models.pp0, cqd0 = models.cqd0;
+        cqd3 = models.cqd3;
+        for (let i = 0; i < 1124; i++) {
+            modelAOS[i*4]   = qp0[i];
+            modelAOS[i*4+1] = qd0[i];
+            modelAOS[i*4+2] = pp0[i];
+            modelAOS[i*4+3] = cqd0[i];
+        }
+        modelReady = true;
+    }
+
+    let start = d.start, end = d.end;
+    let prefix = d.prefix, team = d.team;
+    let th_e8 = d.th_e8;
+    const th_e8_x3 = th_e8 * 3;
+    const TH_SQP = d.th_sqp, TH_SQD = d.th_sqd, TH_SPP = d.th_spp, TH_SCQD = d.th_scqd;
+    const EN_QP = d.en_sqp, EN_QD = d.en_sqd, EN_PP = d.en_spp, EN_CQD = d.en_scqd;
+
+    let p_len = prefix.length;
+    let nameBuf = new Uint8Array(256);
+    nameBuf[0] = 0;
+    for(let k=0; k<p_len; k++) nameBuf[k+1] = prefix.charCodeAt(k);
+    nameBuf[p_len + 1] = 32;
+
+    let teamBuf = getUTF8Bytes(team), t_len = teamBuf.length + 1;
+    let tk = new Uint8Array(256); tk[0] = 0;
+    for(let k=0; k<teamBuf.length; k++) tk[k+1] = teamBuf[k];
+
+    let S_team = new Uint8Array(256);
+    for (let i = 0; i < 256; i++) S_team[i] = i;
+    let jt = 0, kt = 0;
+    for (let i = 0; i < 256; i++) {
+        jt = (jt + S_team[i] + tk[kt]) & 0xFF;
+        let tmp = S_team[i]; S_team[i] = S_team[jt]; S_team[jt] = tmp;
+        kt++; if (kt >= t_len) kt = 0;
+    }
+
+    let validResults = [];
+    let pending = 0;
+    let lastPostTime = performance.now();
+    let tick = 0;
+    const dstart = p_len + 2;
+
+    for(let n=start; n<=end; n++) {
+        let tmp = n, dlen = 0;
+        if (tmp === 0) { digitBuf[dlen++] = 48; }
+        else {
+            while (tmp > 0) {
+                digitBuf[dlen++] = 48 + (tmp % 10);
+                tmp = Math.floor(tmp / 10);
+            }
+        }
+        for (let k = 0; k < dlen; k++) nameBuf[dstart + k] = digitBuf[dlen - 1 - k];
+        const nLen = dstart + dlen;
+
+        S.set(S_team);
+        let j = 0, k_idx = 0;
+        for(let i=0; i<256; i++) {
+            j = (j + S[i] + nameBuf[k_idx]) & 0xFF;
+            let t2 = S[i]; S[i] = S[j]; S[j] = t2;
+            k_idx++; if(k_idx >= nLen) k_idx = 0;
+        }
+        j = 0; k_idx = 0;
+        for(let i=0; i<256; i++) {
+            j = (j + S[i] + nameBuf[k_idx]) & 0xFF;
+            let t2 = S[i]; S[i] = S[j]; S[j] = t2;
+            k_idx++; if(k_idx >= nLen) k_idx = 0;
+        }
+
+        let cnt = 0, i = 0;
+        for (; i < 256 && cnt < 31; i++) {
+            let m = (S[i] * 181 + 160) & 0xFF;
+            if (m >= 89 && m < 217) { base[cnt++] = m & 63; }
+        }
+
+        for(let k=0; k<10; k++) arr[k] = base[k];
+        for(let k=1; k<10; k++) {
+            let v = arr[k]; let j2 = k - 1;
+            while(j2 >= 0 && arr[j2] > v) { arr[j2+1] = arr[j2]; j2--; }
+            arr[j2+1] = v;
+        }
+        let hp = 154 + arr[3] + arr[4] + arr[5] + arr[6];
+
+        let atk = med3(base[10], base[11], base[12]) + 36;
+        let def = med3(base[13], base[14], base[15]) + 36;
+        let spd = med3(base[16], base[17], base[18]) + 36;
+        let agi = med3(base[19], base[20], base[21]) + 36;
+        let mag = med3(base[22], base[23], base[24]) + 36;
+        let res = med3(base[25], base[26], base[27]) + 36;
+        let intel = med3(base[28], base[29], base[30]) + 36;
+
+        const intSum = atk + def + spd + agi + mag + res + intel;
+        if (hp + 3 * intSum < th_e8_x3) {
+            pending++;
+            if ((++tick & 255) === 0 && performance.now() - lastPostTime > 200) {
+                self.postMessage({type: 'progress', count: pending});
+                pending = 0; lastPostTime = performance.now();
+            }
+            continue;
+        }
+        const e8 = hp * 0.3333333333333333 + intSum;
+
+        for (; i < 256 && cnt < 128; i++) {
+            let m = (S[i] * 181 + 160) & 0xFF;
+            if (m >= 89 && m < 217) { base[cnt++] = m & 63; }
+        }
+        if (cnt < 128) base.fill(0, cnt, 128);
+
+        skl_id.set(skl_init);
+        freq.fill(0, 0, 16);
+        let a = 0, b = 0, s = 0;
+        for (let r = 0; r < 2; r++) {
+            for (let k = 0; k < 40; k++) {
+                a += 1; b = (b + S[a]) & 0xFF;
+                let t1 = S[a]; S[a] = S[b]; S[b] = t1;
+                let u = S[(S[a] + S[b]) & 0xFF];
+                a += 1; b = (b + S[a]) & 0xFF;
+                let t2 = S[a]; S[a] = S[b]; S[b] = t2;
+                let t_val = S[(S[a] + S[b]) & 0xFF];
+                let rnd = mod40[(u << 8) | t_val];
+                s += rnd + skl_id[k];
+                if (s >= 40) { s -= 40; if (s >= 40) s -= 40; }
+                let ts = skl_id[k]; skl_id[k] = skl_id[s]; skl_id[s] = ts;
+            }
+        }
+
+        let last = -1;
+        for (let j = 0; j < 16; j++) {
+            let id = 64 + j * 4;
+            let pp = base[id];
+            if (base[id+1] < pp) pp = base[id+1];
+            if (base[id+2] < pp) pp = base[id+2];
+            if (base[id+3] < pp) pp = base[id+3];
+            if (pp > 10 && skl_id[j] < 35) {
+                freq[j] = pp - 10;
+                if (skl_id[j] < 25) last = j;
+            }
+        }
+
+        if (last === -1) {
+            if (freq[14] > 0) { let m = base[60] < base[61] ? base[60] : base[61]; freq[14] += (freq[14] < m ? freq[14] : m); }
+            if (freq[15] > 0) { let m = base[62] < base[63] ? base[62] : base[63]; freq[15] += (freq[15] < m ? freq[15] : m); }
+        } else if (last === 14) {
+            freq[14] <<= 1;
+            if (freq[15] > 0) { let m = base[62] < base[63] ? base[62] : base[63]; freq[15] += (freq[15] < m ? freq[15] : m); }
+        } else if (last === 15) {
+            freq[15] <<= 1;
+            if (freq[14] > 0) { let m = base[60] < base[61] ? base[60] : base[61]; freq[14] += (freq[14] < m ? freq[14] : m); }
+        } else {
+            freq[last] <<= 1;
+            if (freq[14] > 0) { let m = base[60] < base[61] ? base[60] : base[61]; freq[14] += (freq[14] < m ? freq[14] : m); }
+            if (freq[15] > 0) { let m = base[62] < base[63] ? base[62] : base[63]; freq[15] += (freq[15] < m ? freq[15] : m); }
+        }
+
+        x[0] = hp; x[1] = atk; x[2] = def; x[3] = spd; x[4] = agi; x[5] = mag; x[6] = res; x[7] = intel;
+        x.fill(0, 8);
+
+        let zd = 1, kill = 1;
+        for (let k = 0; k < 16; k++) {
+            const skId = skl_id[k], f = freq[k];
+            if (skId >= 35 || f === 0) continue;
+            if (skId == 9 || skId == 16) { x[skId+8] = zd * f; zd *= (1 - f * 0.00234375); }
+            else if (skId == 18) { x[skId+8] = zd * f; zd *= (1 - f * 0.002734375); }
+            else if (skId == 19 || skId == 23) { x[skId+8] = zd * f; zd *= (1 - f * 0.0046875); }
+            else if (skId == 20 || skId == 22) { x[skId+8] = zd * f; zd *= (1 - f * 0.00546875); }
+            else if (skId < 25) { x[skId+8] = zd * f; zd *= (1 - f * 0.0078125); }
+            else if (skId == 31 || skId == 32) { x[skId+8] = kill * f; kill *= (1 - f * 0.0078125); }
+            else { x[skId+8] = f; }
+        }
+
+        if (x[37] <= 70) { x[37] = x[37] * x[37] / 70; }
+        else             { x[37] = x[37] * 2 - 70; }
+
+        if (x[32] > 0) {
+            for(let k=0; k<nLen; k++) shadowBuf[k] = nameBuf[k];
+            let suffix = '?shadow';
+            for(let k=0; k<suffix.length; k++) shadowBuf[nLen+k] = suffix.charCodeAt(k);
+            let sLen = nLen + suffix.length;
+            S2.set(S_team);
+            let j2 = 0, k2 = 0;
+            for(let i2=0; i2<256; i2++) { j2 = (j2 + S2[i2] + shadowBuf[k2]) & 0xFF; let t2 = S2[i2]; S2[i2] = S2[j2]; S2[j2] = t2; k2++; if(k2 >= sLen) k2 = 0; }
+            j2 = 0; k2 = 0;
+            for(let i2=0; i2<256; i2++) { j2 = (j2 + S2[i2] + shadowBuf[k2]) & 0xFF; let t2 = S2[i2]; S2[i2] = S2[j2]; S2[j2] = t2; k2++; if(k2 >= sLen) k2 = 0; }
+
+            let cnt2 = 0;
+            for (let i2 = 0; i2 < 256 && cnt2 < 31; i2++) { let m = (S2[i2] * 181 + 160) & 0xFF; if (m >= 89 && m < 217) { base2[cnt2] = m & 63; cnt2++; } }
+            if (cnt2 < 31) base2.fill(0, cnt2, 31);
+
+            for(let k=0; k<10; k++) arr2[k] = base2[k];
+            for(let k=1; k<10; k++) {
+                let v = arr2[k]; let j2 = k - 1;
+                while(j2 >= 0 && arr2[j2] > v) { arr2[j2+1] = arr2[j2]; j2--; }
+                arr2[j2+1] = v;
+            }
+            let hp2 = 154 + arr2[3] + arr2[4] + arr2[5] + arr2[6];
+            let atk2 = med3(base2[10], base2[11], base2[12]);
+            let def2 = med3(base2[13], base2[14], base2[15]);
+            let spd2 = med3(base2[16], base2[17], base2[18]);
+            let agi2 = med3(base2[19], base2[20], base2[21]);
+            let mag2 = med3(base2[22], base2[23], base2[24]);
+            let res2 = med3(base2[25], base2[26], base2[27]);
+            let intel2 = med3(base2[28], base2[29], base2[30]);
+            const shadowi = atk2*2.8 + def2*0.6 + spd2*2.5 + agi2*1.2 + mag2 + res2 - 1.2*intel2 + 0.8*hp2;
+            x[43] = shadowi * 1.0 * x[32] / 100;
+        } else { x[43] = 0; }
+
+        if (x[42] > 0) x[44] = 1;
+        if (x[37] > 0) { x[45] = x[26]; x[26] = 0; }
+
+        let scoreQP = modelAOS[0], scoreQD = modelAOS[1], scorePP = modelAOS[2], scoreCQD2 = modelAOS[3];
+        let activeLen = 0;
+        for (let k = 0; k < 46; k++) if (x[k] !== 0) active[activeLen++] = k;
+
+        for (let a = 0; a < activeLen; a++) {
+            const k = active[a], v = x[k], mi = (1 + k) * 4;
+            scoreQP += modelAOS[mi] * v; scoreQD += modelAOS[mi+1] * v;
+            scorePP += modelAOS[mi+2] * v; scoreCQD2 += modelAOS[mi+3] * v;
+        }
+        for (let a = 0; a < activeLen; a++) {
+            const k = active[a], xk = x[k];
+            for (let b = a; b < activeLen; b++) {
+                const l = active[b];
+                const mi = pairIdx[k * 46 + l];
+                if (mi < 0) continue;
+                const v = xk * x[l];
+                const off = mi * 4;
+                scoreQP += modelAOS[off] * v; scoreQD += modelAOS[off+1] * v;
+                scorePP += modelAOS[off+2] * v; scoreCQD2 += modelAOS[off+3] * v;
+            }
+        }
+
+        let scoreCQD1 = 0;
+        if (x[32] >= 30) {
+            scoreCQD1 = cqd3[0];
+            let idx = 1;
+            for (let k = 0; k < 46; k++) scoreCQD1 += cqd3[idx++] * x[k];
+            for (let k = 0; k < 46; k++) {
+                for (let l = k; l < 46; l++) {
+                    if ((k === 26 && (l === 37 || l === 45)) || (k === 42 && l === 44) || (k === 44 && l === 44)) continue;
+                    scoreCQD1 += cqd3[idx++] * (x[k] * x[l]);
+                }
+            }
+        }
+        const scoreCQD = (scoreCQD1 > scoreCQD2 ? scoreCQD1 : scoreCQD2) * 100;
+
+        let qpP = (scoreQP + 0.5) | 0;
+        let qdP = (scoreQD + 0.5) | 0;
+        let ppP = (scorePP + 0.5) | 0;
+        let cqdP = (scoreCQD + 0.5) | 0;
+
+        let passQP = EN_QP && qpP >= TH_SQP;
+        let passQD = EN_QD && qdP >= TH_SQD;
+        let passPP = EN_PP && ppP >= TH_SPP;
+        let passCQD = EN_CQD && cqdP >= TH_SCQD;
+
+        if (passQP || passQD || passPP || passCQD) {
+            validResults.push({
+                n: n, e8: e8,
+                qp: qpP, qd: qdP, pp: ppP, cqd: cqdP,
+                pq: passQP ? 1 : 0, pd: passQD ? 1 : 0,
+                ps: passPP ? 1 : 0, pc: passCQD ? 1 : 0
+            });
+        }
+
+        pending++;
+        if ((++tick & 255) === 0 && performance.now() - lastPostTime > 200) {
+            self.postMessage({type: 'progress', count: pending});
+            pending = 0; lastPostTime = performance.now();
+        }
+    }
+    self.postMessage({ type: 'done', results: validResults, count: pending });
+};
+`;
+
+const workerUrl = URL.createObjectURL(new Blob([workerCode], {type: 'application/javascript'}));
+</script>
+</body>
+</html>
