@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Boss 号筛选器 (! 战队)</title>
+<style>
+    :root {
+        --bg: #ffffff;
+        --bg-card: #ffffff;
+        --text: #111111;
+        --text-dim: #6b7280;
+        --blue: #3b82f6;
+        --border: #e5e7eb;
+        --border-light: #f3f4f6;
+    }
+    * { box-sizing: border-box; }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        margin: 0;
+        padding: 0;
+        -webkit-font-smoothing: antialiased;
+    }
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    h1 { font-size: 22px; margin: 0 0 6px 0; font-weight: 800; }
+    .sub { font-size: 13px; color: var(--text-dim); margin: 0 0 20px 0; }
+    .sub code {
+        background: #fef3c7;
+        color: #b45309;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-weight: 700;
+    }
+    .card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 18px;
+        margin-bottom: 14px;
+    }
+    .card h4 {
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--text-dim);
+        margin: 0 0 12px 0;
+        letter-spacing: 0.5px;
+    }
+    .row { display: flex; flex-wrap: wrap; gap: 10px; }
+    .item { flex: 1; min-width: 100px; }
+    .item label {
+        display: block;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--text-dim);
+        margin-bottom: 5px;
+    }
+    input, select, textarea {
+        width: 100%;
+        padding: 8px 11px;
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        background: #fff;
+        color: var(--text);
+        font-size: 13px;
+        font-family: inherit;
+    }
+    input:focus, textarea:focus, select:focus {
+        outline: none;
+        border-color: var(--blue);
+        box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+    }
+    textarea {
+        resize: vertical;
+        height: 160px;
+        font-family: "SF Mono", Monaco, Consolas, monospace;
+        font-size: 12px;
+        line-height: 1.5;
+    }
+    .actions { display: flex; gap: 10px; margin: 14px 0; }
+    button {
+        padding: 11px 22px;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+        color: white;
+    }
+    #runBtn {
+        flex: 1;
+        background: linear-gradient(135deg, #3b82f6, #2563eb);
+        box-shadow: 0 2px 8px rgba(59,130,246,0.3);
+    }
+    #runBtn:disabled {
+        background: var(--border);
+        color: var(--text-dim);
+        cursor: not-allowed;
+        box-shadow: none;
+    }
+    #stopBtn { background: linear-gradient(135deg, #ef4444, #dc2626); }
+    .btn-copy {
+        padding: 5px 10px;
+        font-size: 12px;
+        background: var(--border-light);
+        color: var(--text-dim);
+        border-radius: 6px;
+        font-weight: 600;
+    }
+    .btn-copy:hover { background: #e0f2fe; color: var(--blue); }
+    .prog {
+        font-size: 12px;
+        color: var(--text-dim);
+        margin: 12px 0;
+        padding: 12px;
+        background: var(--border-light);
+        border-radius: 8px;
+        font-family: "SF Mono", Monaco, Consolas, monospace;
+        line-height: 1.6;
+        word-break: break-all;
+    }
+    .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+        gap: 12px;
+    }
+    .result-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 14px;
+        position: relative;
+    }
+    .result-card::before {
+        content: "";
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 3px;
+        border-radius: 12px 12px 0 0;
+    }
+    .result-card.qp::before { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+    .result-card.qd::before { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
+    .result-card.pp::before { background: linear-gradient(90deg, #10b981, #34d399); }
+    .result-card.cqd::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+    .result-card.e8h::before { background: linear-gradient(90deg, #ec4899, #f472b6); }
+    .result-card.gl::before { background: linear-gradient(90deg, #06b6d4, #22d3ee); }
+    .result-card.ar::before { background: linear-gradient(90deg, #ef4444, #f87171); }
+    .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    .header span {
+        font-size: 13px;
+        font-weight: 700;
+    }
+    .header .badge {
+        display: inline-block;
+        font-size: 11px;
+        padding: 2px 8px;
+        border-radius: 10px;
+        margin-left: 6px;
+        font-weight: 600;
+    }
+    .qp .badge { background: #dbeafe; color: #1d4ed8; }
+    .qd .badge { background: #ede9fe; color: #6d28d9; }
+    .pp .badge { background: #d1fae5; color: #047857; }
+    .cqd .badge { background: #fef3c7; color: #b45309; }
+    .e8h .badge { background: #fce7f3; color: #9d174d; }
+    .gl .badge { background: #cffafe; color: #155e75; }
+    .ar .badge { background: #fee2e2; color: #991b1b; }
+    .result-card textarea { height: 180px; }
+</style>
+</head>
+<body>
+<div class="container">
+    <h1>⚔️ Boss 号筛选器</h1>
+    <p class="sub">战队固定为 <code>!</code>（BossWeapon 特化增强）· 四评分池 + 三大排行榜</p>
+
+    <div class="card">
+        <h4>配置</h4>
+        <div class="row">
+            <div class="item"><label>前缀</label><input type="text" id="prefix" value="Fin"></div>
+            <div class="item"><label>线程</label>
+                <select id="threads">
+                    <option value="4">4</option>
+                    <option value="6">6</option>
+                    <option value="8" selected>8</option>
+                </select>
+            </div>
+            <div class="item"><label>块大小</label><input type="number" id="block" value="100000" step="10000" min="500"></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h4>号段</h4>
+        <div class="row">
+            <div class="item"><label>起始号</label><input type="number" id="start" value="0" step="0.1"></div>
+            <div class="item"><label>结束号</label><input type="number" id="end" value="1" step="0.1"></div>
+            <div class="item"><label>单位</label>
+                <select id="unit">
+                    <option value="100000">10w</option>
+                    <option value="1000000">100w</option>
+                    <option value="10000000">1000w</option>
+                    <option value="100000000" selected>1E</option>
+                </select>
+            </div>
+            <div class="item"><label>八围剪枝阈值</label><input type="number" id="th_e8" value="672" step="0.01"></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h4>阈值（留空 = 不启用该池）</h4>
+        <div class="row">
+            <div class="item"><label>SQP ≥</label><input type="number" id="th_sqp" value="5500"></div>
+            <div class="item"><label>SQD ≥</label><input type="number" id="th_sqd" value="6000"></div>
+            <div class="item"><label>SPP ≥</label><input type="number" id="th_spp"></div>
+            <div class="item"><label>SCQD ≥</label><input type="number" id="th_scqd"></div>
+        </div>
+    </div>
+
+    <div class="actions">
+        <button id="runBtn" disabled>开始筛选</button>
+        <button id="stopBtn" style="display:none" onclick="stopEval()">⏸ 暂停</button>
+    </div>
+
+    <div id="prog" class="prog">正在初始化...</div>
+
+    <div class="grid">
+        <div class="result-card qp">
+            <div class="header">
+                <span>SQP 池<span class="badge" id="badge-qp">≥5500</span></span>
+                <button class="btn-copy" onclick="copyText('outQP')">📋</button>
+            </div>
+            <textarea id="outQP" readonly placeholder="SQP 达标的号（降序）..."></textarea>
+        </div>
+        <div class="result-card qd">
+            <div class="header">
+                <span>SQD 池<span class="badge" id="badge-qd">≥6000</span></span>
+                <button class="btn-copy" onclick="copyText('outQD')">📋</button>
+            </div>
+            <textarea id="outQD" readonly placeholder="SQD 达标的号（降序）..."></textarea>
+        </div>
+        <div class="result-card pp">
+            <div class="header">
+                <span>SPP 池<span class="badge" id="badge-pp">未启用</span></span>
+                <button class="btn-copy" onclick="copyText('outSPP')">📋</button>
+            </div>
+            <textarea id="outSPP" readonly placeholder="SPP 达标的号（降序）..."></textarea>
+        </div>
+        <div class="result-card cqd">
+            <div class="header">
+                <span>SCQD 池<span class="badge" id="badge-scqd">未启用</span></span>
+                <button class="btn-copy" onclick="copyText('outSCQD')">📋</button>
+            </div>
+            <textarea id="outSCQD" readonly placeholder="SCQD 达标的号（降序）..."></textarea>
+        </div>
+        <div class="result-card e8h">
+            <div class="header">
+                <span>🏆 八围最高榜<span class="badge" id="badge-e8h">全程最高</span></span>
+                <button class="btn-copy" onclick="copyText('outE8H')">📋</button>
+            </div>
+            <textarea id="outE8H" readonly placeholder="全程八围最高的号（并列全列）..."></textarea>
+        </div>
+        <div class="result-card gl">
+            <div class="header">
+                <span>✨ 华丽值最高榜<span class="badge" id="badge-gl">七围最低</span></span>
+                <button class="btn-copy" onclick="copyText('outGL')">📋</button>
+            </div>
+            <textarea id="outGL" readonly placeholder="全程华丽值（七围最低项）最高的号（并列全列）..."></textarea>
+        </div>
+        <div class="result-card ar">
+            <div class="header">
+                <span>🌈 四项全能榜<span class="badge" id="badge-ar">四池全中</span></span>
+                <button class="btn-copy" onclick="copyText('outAR')">📋</button>
+            </div>
+            <textarea id="outAR" readonly placeholder="SQP / SQD / SPP / SCQD 四项全部达标的号..."></textarea>
+        </div>
+    </div>
+</div>
+
+<script>
+// ============ 常量 ============
+const BOSS_TEAM = "!";
+const MODEL_FILES = ["qp0", "qd0", "pp0", "cqd0", "cqd3"];
+
+// ============ Wake Lock ============
+let wakeLock = null;
+async function keepAwake() {
+    if (!('wakeLock' in navigator)) return;
+    try { wakeLock = await navigator.wakeLock.request('screen'); } catch(e) {}
+}
+document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'visible' && runState && runState.running) keepAwake();
+});
+
+// ============ 工具 ============
+function copyText(id) {
+    const el = document.getElementById(id);
+    const text = el.value;
+    if (!text) return alert("暂无内容");
+    const temp = document.createElement("textarea");
+    temp.value = text;
+    temp.style.position = "absolute";
+    temp.style.left = "-9999px";
+    document.body.appendChild(temp);
+    temp.select();
+    temp.setSelectionRange(0, 999999);
+    try { document.execCommand("copy"); alert("已复制"); } catch(e) { alert("复制失败"); }
+    document.body.removeChild(temp);
+}
+
+// ============ 模型加载 ============
+let modelData = null;
+
+async function loadModels() {
+    const prog = document.getElementById('prog');
+    prog.innerText = "正在从云端加载模型 (8s超时)...";
+    let ok = 0;
+    try {
+        const promises = MODEL_FILES.map(async (name) => {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 8000);
+            try {
+                const res = await fetch("https://hywzcyh.github.io/NrD/" + name, { signal: controller.signal });
+                if (!res.ok) throw new Error("HTTP " + res.status);
+                const text = await res.text();
+                let arr;
+                if (text.startsWith('[')) {
+                    try { arr = JSON.parse(text); } catch(e) { arr = new Function('return ' + text)(); }
+                } else {
+                    const m = text.match(/\[[\s\S]*\]/);
+                    if (m) arr = new Function('return ' + m[0])();
+                }
+                if (!arr || !arr.length) throw new Error("数据解析失败");
+                const f64 = new Float64Array(arr);
+                ok++;
+                prog.innerText = "加载模型... (" + ok + "/" + MODEL_FILES.length + ")";
+                return { name, f64 };
+            } finally {
+                clearTimeout(timeoutId);
+            }
+        });
+        const results = await Promise.all(promises);
+        modelData = {};
+        results.forEach(r => { modelData[r.name] = r.f64; });
+        prog.innerText = "✅ 模型加载完成";
+        document.getElementById('runBtn').disabled = false;
+    } catch (e) {
+        prog.innerText = "❌ 云端加载失败：" + e.message;
+    }
+}
+
+// ============ 参数 ============
+function readParams() {
+    const unit = parseInt(document.getElementById('unit').value);
+    const parseTh = (id) => {
+        const v = document.getElementById(id).value.trim();
+        if (v === '') return null;
+        const n = parseFloat(v);
+        return isNaN(n) ? null : n;
+    };
+    return {
+        prefix: document.getElementById('prefix').value.trim(),
+        start: Math.round(parseFloat(document.getElementById('start').value) * unit),
+        end: Math.round(parseFloat(document.getElementById('end').value) * unit),
+        th_e8: parseFloat(document.getElementById('th_e8').value) || 0,
+        BLOCK: Math.max(500, parseInt(document.getElementById('block').value) || 100000),
+        threads: parseInt(document.getElementById('threads').value),
+        th_sqp: parseTh('th_sqp'),
+        th_sqd: parseTh('th_sqd'),
+        th_spp: parseTh('th_spp'),
+        th_scqd: parseTh('th_scqd'),
+    };
+}
+
+function paramsEqual(a, b) {
+    return a.prefix === b.prefix
+        && a.start === b.start && a.end === b.end
+        && a.th_e8 === b.th_e8
+        && a.BLOCK === b.BLOCK && a.threads === b.threads
+        && a.th_sqp === b.th_sqp && a.th_sqd === b.th_sqd
+        && a.th_spp === b.th_spp && a.th_scqd === b.th_scqd;
+}
+
+function updateBadges(p) {
+    document.getElementById('badge-qp').innerText = p.th_sqp !== null ? '≥' + p.th_sqp : '未启用';
+    document.getElementById('badge-qd').innerText = p.th_sqd !== null ? '≥' + p.th_sqd : '未启用';
+    document.getElementById('badge-pp').innerText = p.th_spp !== null ? '≥' + p.th_spp : '未启用';
+    document.getElementById('badge-scqd').innerText = p.th_scqd !== null ? '≥' + p.th_scqd : '未启用';
+    // 四项全能只有四阈值都启用才可能
+    const fourEnabled = p.th_sqp !== null && p.th_sqd !== null && p.th_spp !== null && p.th_scqd !== null;
+    document.getElementById('badge-ar').innerText = fourEnabled ? '四池全中' : '需四项全启用';
+}
+
+['th_sqp', 'th_sqd', 'th_spp', 'th_scqd'].forEach(id => {
+    document.getElementById(id).addEventListener('input', () => updateBadges(readParams()));
+});
+
+// ============ 暂停 ============
+function stopEval() {
+    if (!runState || !runState.running) return;
+    runState.paused = true;
+    runState.running = false;
+    runState.accumulatedTime = (runState.accumulatedTime || 0) + (performance.now() - runState.runStartTime);
+
+    let minInflight = runState.nextStart;
+    for (let ws of runState.inFlight.values()) if (ws < minInflight) minInflight = ws;
+    runState.nextStart = minInflight;
+    runState.inFlight.clear();
+
+    for (const w of runState.activeWorkers) { try { w.terminate(); } catch(e) {} }
+    runState.activeWorkers = [];
+
+    document.getElementById('runBtn').disabled = false;
+    document.getElementById('runBtn').innerText = "▶ 继续 (从 " + runState.nextStart + ")";
+    document.getElementById('stopBtn').style.display = "none";
+    document.getElementById('prog').innerText = "⏸ 已暂停 | 已处理至 " + runState.nextStart + " / " + runState.end
+        + " | 四池 QP:" + runState.qpList.length + " QD:" + runState.qdList.length
+        + " SPP:" + runState.sppList.length + " SCQD:" + runState.scqdList.length
+        + " | 八围最高:" + (runState.maxE8 === -Infinity ? "—" : runState.maxE8.toFixed(2))
+        + " | 华丽最高:" + (runState.maxGlow === -Infinity ? "—" : runState.maxGlow);
+}
+
+// ============ 开始 ============
+window.onload = function() {
+    document.getElementById('runBtn').addEventListener('click', startEval);
+    updateBadges(readParams());
+    loadModels();
+};
+
+let runState = null;
+
+function startEval() {
+    if (!modelData) return alert("模型尚未加载完毕！");
+    const params = readParams();
+    if (params.start > params.end) return alert("起始值不能大于结束值！");
+
+    const anyEnabled = params.th_sqp !== null || params.th_sqd !== null
+        || params.th_spp !== null || params.th_scqd !== null;
+    // 即使不启用任何阈值，也允许跑排行榜
+    // if (!anyEnabled) return alert("至少启用一个评分阈值！");
+
+    const isContinue = runState && runState.paused
+        && paramsEqual(params, runState.params)
+        && runState.nextStart <= runState.end;
+
+    if (!isContinue) {
+        runState = {
+            params: params,
+            paused: false, running: false,
+            prefix: params.prefix,
+            team: BOSS_TEAM,
+            start: params.start, end: params.end,
+            th_e8: params.th_e8, BLOCK: params.BLOCK, threads: params.threads,
+            th_sqp: params.th_sqp, th_sqd: params.th_sqd,
+            th_spp: params.th_spp, th_scqd: params.th_scqd,
+            nextStart: params.start,
+            totalProcessed: 0,
+            totalCount: params.end - params.start + 1,
+            // 四池
+            qpList: [], qdList: [], sppList: [], scqdList: [],
+            // 三大排行榜
+            maxE8: -Infinity, e8List: [],
+            maxGlow: -Infinity, glowList: [],
+            allRoundList: [],
+            accumulatedTime: 0,
+            activeWorkers: [],
+            stoppedCount: 0,
+            modelsSentTo: null,
+            inFlight: new Map(),
+            lastRenderTime: 0,
+            speedSampleTime: 0, speedSampleCount: 0, instantSpeed: 0,
+        };
+        ['outQP','outQD','outSPP','outSCQD','outE8H','outGL','outAR'].forEach(id => document.getElementById(id).value = "");
+    }
+
+    launchEval();
+}
+
+function launchEval() {
+    const hc = navigator.hardwareConcurrency || 8;
+    const threads = Math.min(runState.threads, hc);
+
+    runState.running = true;
+    runState.stoppedCount = 0;
+    runState.activeWorkers = [];
+    runState.modelsSentTo = new WeakSet();
+    runState.inFlight = new Map();
+    runState.runStartTime = performance.now();
+
+    keepAwake();
+
+    const btn = document.getElementById('runBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const prog = document.getElementById('prog');
+
+    btn.disabled = true;
+    stopBtn.style.display = "inline-block";
+    prog.innerText = "运行中 (" + threads + " 线程, 块 " + runState.BLOCK + ", 战队 !)...";
+
+    function totalElapsed() {
+        return (runState.accumulatedTime || 0) + (performance.now() - runState.runStartTime);
+    }
+
+    function updateProgress() {
+        const now = performance.now();
+        if (now - runState.lastRenderTime > 100) {
+            runState.lastRenderTime = now;
+            if (now - runState.speedSampleTime > 500) {
+                const dt = (now - runState.speedSampleTime) / 1000;
+                if (dt > 0) runState.instantSpeed = (runState.totalProcessed - runState.speedSampleCount) / dt;
+                runState.speedSampleTime = now;
+                runState.speedSampleCount = runState.totalProcessed;
+            }
+            const shown = Math.min(runState.totalProcessed, runState.totalCount);
+            const p = Math.min(100, (shown / runState.totalCount) * 100).toFixed(1);
+            const elapsed = totalElapsed() / 1000;
+            const avgSpeed = elapsed > 0 ? shown / elapsed : 0;
+            const eta = runState.instantSpeed > 0.5 ? (runState.totalCount - shown) / runState.instantSpeed : 0;
+            prog.innerText = "进度: " + p + "% (" + shown + " / " + runState.totalCount + ")"
+                + " | QP:" + runState.qpList.length + " QD:" + runState.qdList.length
+                + " SPP:" + runState.sppList.length + " SCQD:" + runState.scqdList.length
+                + " | 八围最高:" + (runState.maxE8 === -Infinity ? "—" : runState.maxE8.toFixed(2))
+                + " | 华丽最高:" + (runState.maxGlow === -Infinity ? "—" : runState.maxGlow)
+                + " | 全能:" + runState.allRoundList.length
+                + " | 实时 " + runState.instantSpeed.toFixed(0) + "/s"
+                + " | 剩余 " + eta.toFixed(1) + "s";
+        }
+    }
+
+    function finish() {
+        runState.qpList.sort((a, b) => b.v - a.v);
+        runState.qdList.sort((a, b) => b.v - a.v);
+        runState.sppList.sort((a, b) => b.v - a.v);
+        runState.scqdList.sort((a, b) => b.v - a.v);
+
+        // 排行榜按号升序
+        runState.e8List.sort((a, b) => a.n - b.n);
+        runState.glowList.sort((a, b) => a.n - b.n);
+        runState.allRoundList.sort((a, b) => a.n - b.n);
+
+        document.getElementById('outQP').value = runState.qpList.map(x => x.s).join('\n');
+        document.getElementById('outQD').value = runState.qdList.map(x => x.s).join('\n');
+        document.getElementById('outSPP').value = runState.sppList.map(x => x.s).join('\n');
+        document.getElementById('outSCQD').value = runState.scqdList.map(x => x.s).join('\n');
+        document.getElementById('outE8H').value = runState.e8List.map(x => x.s).join('\n');
+        document.getElementById('outGL').value = runState.glowList.map(x => x.s).join('\n');
+        document.getElementById('outAR').value = runState.allRoundList.map(x => x.s).join('\n');
+
+        const totalTime = totalElapsed() / 1000;
+        const shown = Math.min(runState.totalProcessed, runState.totalCount);
+        const avgSpeed = totalTime > 0 ? shown / totalTime : 0;
+
+        btn.disabled = false;
+        stopBtn.style.display = "none";
+        prog.innerText = "✅ 完成 | 处理 " + shown + " / " + runState.totalCount + " 号"
+            + " | QP:" + runState.qpList.length + " QD:" + runState.qdList.length
+            + " SPP:" + runState.sppList.length + " SCQD:" + runState.scqdList.length
+            + " | 八围最高:" + (runState.maxE8 === -Infinity ? "—" : runState.maxE8.toFixed(2))
+            + " | 华丽最高:" + (runState.maxGlow === -Infinity ? "—" : runState.maxGlow)
+            + " | 全能:" + runState.allRoundList.length
+            + " | 总用时 " + totalTime.toFixed(2) + "s"
+            + " | 平均 " + avgSpeed.toFixed(0) + "/s";
+
+        runState.paused = false;
+        runState.running = false;
+        runState.inFlight.clear();
+        btn.innerText = "开始筛选";
+    }
+
+    function dispatchNext(worker) {
+        if (runState.nextStart > runState.end) {
+            worker.postMessage({ type: 'stop' });
+            return;
+        }
+        const ws = runState.nextStart;
+        const we = Math.min(ws + runState.BLOCK - 1, runState.end);
+        runState.nextStart = we + 1;
+        runState.inFlight.set(worker, ws);
+        const models = runState.modelsSentTo.has(worker) ? null : modelData;
+        runState.modelsSentTo.add(worker);
+        worker.postMessage({
+            type: 'start',
+            start: ws, end: we,
+            prefix: runState.prefix,
+            team: runState.team,
+            th_e8: runState.th_e8,
+            th_sqp: runState.th_sqp !== null ? runState.th_sqp : -9999999,
+            th_sqd: runState.th_sqd !== null ? runState.th_sqd : -9999999,
+            th_spp: runState.th_spp !== null ? runState.th_spp : -9999999,
+            th_scqd: runState.th_scqd !== null ? runState.th_scqd : -9999999,
+            en_sqp: runState.th_sqp !== null ? 1 : 0,
+            en_sqd: runState.th_sqd !== null ? 1 : 0,
+            en_spp: runState.th_spp !== null ? 1 : 0,
+            en_scqd: runState.th_scqd !== null ? 1 : 0,
+            models: models
+        });
+    }
+
+    for (let t = 0; t < threads; t++) {
+        const worker = new Worker(workerUrl);
+        runState.activeWorkers.push(worker);
+
+        worker.onerror = function(e) {
+            console.error("Worker 崩溃:", e.message);
+            runState.stoppedCount++;
+            runState.inFlight.delete(worker);
+            try { worker.terminate(); } catch(_) {}
+            const idx = runState.activeWorkers.indexOf(worker);
+            if (idx >= 0) runState.activeWorkers.splice(idx, 1);
+            if (runState.stoppedCount === threads && runState.running) finish();
+        };
+
+        worker.onmessage = function(e) {
+            const d = e.data;
+            if (d.type === 'progress') {
+                runState.totalProcessed += d.count;
+                updateProgress();
+            } else if (d.type === 'done') {
+                runState.totalProcessed += d.count;
+                runState.inFlight.delete(worker);
+
+                // 四池
+                for (const r of d.results) {
+                    const s_name = runState.prefix + " " + r.n + "@" + runState.team;
+                    if (r.pq) runState.qpList.push({ v: r.qp, s: s_name + " | 八围:" + r.e8.toFixed(2) + " | SQP:" + r.qp });
+                    if (r.pd) runState.qdList.push({ v: r.qd, s: s_name + " | 八围:" + r.e8.toFixed(2) + " | SQD:" + r.qd });
+                    if (r.ps) runState.sppList.push({ v: r.pp, s: s_name + " | 八围:" + r.e8.toFixed(2) + " | SPP:" + r.pp });
+                    if (r.pc) runState.scqdList.push({ v: r.cqd, s: s_name + " | 八围:" + r.e8.toFixed(2) + " | SCQD:" + r.cqd });
+                }
+
+                // 八围最高榜
+                if (d.blockMaxE8 !== -Infinity) {
+                    if (d.blockMaxE8 > runState.maxE8) {
+                        runState.maxE8 = d.blockMaxE8;
+                        runState.e8List = d.blockE8List.slice();
+                    } else if (d.blockMaxE8 === runState.maxE8) {
+                        runState.e8List.push(...d.blockE8List);
+                    }
+                }
+
+                // 华丽值最高榜
+                if (d.blockMaxGlow !== -Infinity) {
+                    if (d.blockMaxGlow > runState.maxGlow) {
+                        runState.maxGlow = d.blockMaxGlow;
+                        runState.glowList = d.blockGlowList.slice();
+                    } else if (d.blockMaxGlow === runState.maxGlow) {
+                        runState.glowList.push(...d.blockGlowList);
+                    }
+                }
+
+                // 四项全能榜
+                runState.allRoundList.push(...d.allRoundList);
+
+                updateProgress();
+                dispatchNext(worker);
+            } else if (d.type === 'stopped') {
+                runState.stoppedCount++;
+                runState.inFlight.delete(worker);
+                try { worker.terminate(); } catch(_) {}
+                const idx = runState.activeWorkers.indexOf(worker);
+                if (idx >= 0) runState.activeWorkers.splice(idx, 1);
+                if (runState.stoppedCount === threads && runState.running) finish();
+            }
+        };
+
+        dispatchNext(worker);
+    }
+}
+
+// ============ Worker ============
+const workerCode = `
+const N = 256, M = 128, K = 64, skill_cnt = 40;
+const encoder = new TextEncoder();
+function getUTF8Bytes(str) { return [...encoder.encode(str)]; }
+
+const S = new Uint8Array(256);
+const base = new Uint8Array(128);
+const arr = new Uint8Array(10);
+const skl_init = new Uint8Array(40);
+for (let i = 0; i < 40; i++) skl_init[i] = i;
+const skl_id = new Uint8Array(40);
+const freq = new Uint8Array(40);
+const S2 = new Uint8Array(256);
+const base2 = new Uint8Array(128);
+const arr2 = new Uint8Array(10);
+const shadowBuf = new Uint8Array(256);
+const digitBuf = new Uint8Array(12);
+
+const x = new Float64Array(46);
+const active = new Uint8Array(46);
+const modelAOS = new Float64Array(1124 * 4);
+let cqd3;
+let modelReady = false;
+
+const mod40 = new Uint8Array(65536);
+for (let i = 0; i < 65536; i++) mod40[i] = i % 40;
+
+const pairIdx = new Int32Array(46 * 46).fill(-1);
+let p = 47;
+for (let i = 0; i < 46; i++) {
+    for (let j = i; j < 46; j++) {
+        if ((i === 26 && (j === 37 || j === 45)) || (i === 42 && j === 44) || (i === 44 && j === 44)) continue;
+        pairIdx[i * 46 + j] = p++;
+    }
+}
+
+const med3 = (a,b,c) => { let t; if(a>b){t=a;a=b;b=t;} if(b>c){t=b;b=c;c=t;} if(a>b){t=a;a=b;b=t;} return b; };
+
+function applyTV(base, from, to) {
+    for (let t = from; t < to; t++) {
+        const s = base[t];
+        if (t < 50) {
+            if (s < 41) base[t] = (s & 15) + 41;
+        } else {
+            if (s < 16) base[t] = s + 32;
+        }
+    }
+}
+
+self.onmessage = function(e) {
+    const d = e.data;
+    if (d.type === 'stop') { self.postMessage({ type: 'stopped' }); return; }
+    if (d.type !== 'start') return;
+
+    if (!modelReady) {
+        const models = d.models;
+        if (!models) return;
+        const qp0 = models.qp0, qd0 = models.qd0, pp0 = models.pp0, cqd0 = models.cqd0;
+        cqd3 = models.cqd3;
+        for (let i = 0; i < 1124; i++) {
+            modelAOS[i*4]   = qp0[i];
+            modelAOS[i*4+1] = qd0[i];
+            modelAOS[i*4+2] = pp0[i];
+            modelAOS[i*4+3] = cqd0[i];
+        }
+        modelReady = true;
+    }
+
+    const start = d.start, end = d.end;
+    const prefix = d.prefix, team = d.team;
+    const th_e8 = d.th_e8;
+    const th_e8_x3 = th_e8 * 3;
+    const TH_SQP = d.th_sqp, TH_SQD = d.th_sqd, TH_SPP = d.th_spp, TH_SCQD = d.th_scqd;
+    const EN_QP = d.en_sqp, EN_QD = d.en_sqd, EN_PP = d.en_spp, EN_CQD = d.en_scqd;
+
+    const isBoss = (team === "!");
+    // 四项全能的判定条件：四个阈值都必须启用
+    const CAN_ALL_ROUND = EN_QP && EN_QD && EN_PP && EN_CQD;
+
+    const p_len = prefix.length;
+    const nameBuf = new Uint8Array(256);
+    nameBuf[0] = 0;
+    for (let k = 0; k < p_len; k++) nameBuf[k+1] = prefix.charCodeAt(k);
+    nameBuf[p_len + 1] = 32;
+
+    const teamBuf = getUTF8Bytes(team), t_len = teamBuf.length + 1;
+    const tk = new Uint8Array(256);
+    tk[0] = 0;
+    for (let k = 0; k < teamBuf.length; k++) tk[k+1] = teamBuf[k];
+
+    const S_team = new Uint8Array(256);
+    for (let i = 0; i < 256; i++) S_team[i] = i;
+    let jt = 0, kt = 0;
+    for (let i = 0; i < 256; i++) {
+        jt = (jt + S_team[i] + tk[kt]) & 0xFF;
+        const tmp = S_team[i]; S_team[i] = S_team[jt]; S_team[jt] = tmp;
+        kt++; if (kt >= t_len) kt = 0;
+    }
+
+    // 四池
+    const validResults = [];
+    let pending = 0;
+    let lastPostTime = performance.now();
+    let tick = 0;
+
+    // 三大排行榜（每块独立统计，主线程合并）
+    let blockMaxE8 = -Infinity;
+    let blockE8List = [];
+    let blockMaxGlow = -Infinity;
+    let blockGlowList = [];
+    const allRoundList = [];
+
+    const dstart = p_len + 2;
+
+    for (let n = start; n <= end; n++) {
+        let tmp = n, dlen = 0;
+        if (tmp === 0) { digitBuf[dlen++] = 48; }
+        else {
+            while (tmp > 0) {
+                digitBuf[dlen++] = 48 + (tmp % 10);
+                tmp = Math.floor(tmp / 10);
+            }
+        }
+        for (let k = 0; k < dlen; k++) nameBuf[dstart + k] = digitBuf[dlen - 1 - k];
+        const nLen = dstart + dlen;
+
+        S.set(S_team);
+        let j = 0, k_idx = 0;
+        for (let i = 0; i < 256; i++) {
+            j = (j + S[i] + nameBuf[k_idx]) & 0xFF;
+            const t2 = S[i]; S[i] = S[j]; S[j] = t2;
+            k_idx++; if (k_idx >= nLen) k_idx = 0;
+        }
+        j = 0; k_idx = 0;
+        for (let i = 0; i < 256; i++) {
+            j = (j + S[i] + nameBuf[k_idx]) & 0xFF;
+            const t2 = S[i]; S[i] = S[j]; S[j] = t2;
+            k_idx++; if (k_idx >= nLen) k_idx = 0;
+        }
+
+        let cnt = 0, i = 0;
+        for (; i < 256 && cnt < 31; i++) {
+            const m = (S[i] * 181 + 160) & 0xFF;
+            if (m >= 89 && m < 217) { base[cnt++] = m & 63; }
+        }
+
+        // TV 阶段 1
+        const phase1End = cnt;
+        if (isBoss && phase1End > 6) {
+            applyTV(base, 6, Math.min(50, phase1End));
+        }
+
+        // 八围 & 华丽值（TV 后用前 31 个 base 算）
+        for (let k = 0; k < 10; k++) arr[k] = base[k];
+        for (let k = 1; k < 10; k++) {
+            const v = arr[k]; let j2 = k - 1;
+            while (j2 >= 0 && arr[j2] > v) { arr[j2+1] = arr[j2]; j2--; }
+            arr[j2+1] = v;
+        }
+        const hp = 154 + arr[3] + arr[4] + arr[5] + arr[6];
+        const atk = med3(base[10], base[11], base[12]) + 36;
+        const def = med3(base[13], base[14], base[15]) + 36;
+        const spd = med3(base[16], base[17], base[18]) + 36;
+        const agi = med3(base[19], base[20], base[21]) + 36;
+        const mag = med3(base[22], base[23], base[24]) + 36;
+        const res = med3(base[25], base[26], base[27]) + 36;
+        const intel = med3(base[28], base[29], base[30]) + 36;
+
+        const intSum = atk + def + spd + agi + mag + res + intel;
+        const e8x3 = hp + 3 * intSum;
+        const e8 = hp * 0.3333333333333333 + intSum;
+        // 华丽值 = 七围（攻防速敏魔抗智）中的最小值
+        let glow = atk;
+        if (def < glow) glow = def;
+        if (spd < glow) glow = spd;
+        if (agi < glow) glow = agi;
+        if (mag < glow) glow = mag;
+        if (res < glow) glow = res;
+        if (intel < glow) glow = intel;
+
+        // ★ 三大排行榜：八围 & 华丽（不受 e8 剪枝影响，全程扫描）
+        if (e8 > blockMaxE8) {
+            blockMaxE8 = e8;
+            blockE8List = [{
+                n: n, e8: e8,
+                s: prefix + " " + n + "@" + team + " | 八围:" + e8.toFixed(2)
+            }];
+        } else if (e8 === blockMaxE8) {
+            blockE8List.push({
+                n: n, e8: e8,
+                s: prefix + " " + n + "@" + team + " | 八围:" + e8.toFixed(2)
+            });
+        }
+
+        if (glow > blockMaxGlow) {
+            blockMaxGlow = glow;
+            blockGlowList = [{
+                n: n, glow: glow,
+                s: prefix + " " + n + "@" + team
+                    + " | 华丽值:" + glow
+                    + " (攻" + atk + " 防" + def + " 速" + spd
+                    + " 敏" + agi + " 魔" + mag + " 抗" + res + " 智" + intel + ")"
+            }];
+        } else if (glow === blockMaxGlow) {
+            blockGlowList.push({
+                n: n, glow: glow,
+                s: prefix + " " + n + "@" + team
+                    + " | 华丽值:" + glow
+                    + " (攻" + atk + " 防" + def + " 速" + spd
+                    + " 敏" + agi + " 魔" + mag + " 抗" + res + " 智" + intel + ")"
+            });
+        }
+
+        // e8 剪枝
+        if (e8x3 < th_e8_x3) {
+            pending++;
+            if ((++tick & 255) === 0 && performance.now() - lastPostTime > 200) {
+                self.postMessage({ type: 'progress', count: pending });
+                pending = 0; lastPostTime = performance.now();
+            }
+            continue;
+        }
+
+        // 补齐到 128
+        for (; i < 256 && cnt < 128; i++) {
+            const m = (S[i] * 181 + 160) & 0xFF;
+            if (m >= 89 && m < 217) { base[cnt++] = m & 63; }
+        }
+        if (cnt < 128) base.fill(0, cnt, 128);
+
+        // TV 阶段 2
+        if (isBoss && cnt > phase1End) {
+            applyTV(base, phase1End, cnt);
+        }
+
+        // 技能生成
+        skl_id.set(skl_init);
+        freq.fill(0, 0, 16);
+        let a = 0, b = 0, s = 0;
+        for (let r = 0; r < 2; r++) {
+            for (let k = 0; k < 40; k++) {
+                a += 1; b = (b + S[a]) & 0xFF;
+                const t1 = S[a]; S[a] = S[b]; S[b] = t1;
+                const u = S[(S[a] + S[b]) & 0xFF];
+                a += 1; b = (b + S[a]) & 0xFF;
+                const t2 = S[a]; S[a] = S[b]; S[b] = t2;
+                const t_val = S[(S[a] + S[b]) & 0xFF];
+                const rnd = mod40[(u << 8) | t_val];
+                s += rnd + skl_id[k];
+                if (s >= 40) { s -= 40; if (s >= 40) s -= 40; }
+                const ts = skl_id[k]; skl_id[k] = skl_id[s]; skl_id[s] = ts;
+            }
+        }
+
+        let last = -1;
+        for (let j2 = 0; j2 < 16; j2++) {
+            const id = 64 + j2 * 4;
+            let pp = base[id];
+            if (base[id+1] < pp) pp = base[id+1];
+            if (base[id+2] < pp) pp = base[id+2];
+            if (base[id+3] < pp) pp = base[id+3];
+            if (pp > 10 && skl_id[j2] < 35) {
+                freq[j2] = pp - 10;
+                if (skl_id[j2] < 25) last = j2;
+            }
+        }
+
+        if (last === -1) {
+            if (freq[14] > 0) { const m = base[60] < base[61] ? base[60] : base[61]; freq[14] += (freq[14] < m ? freq[14] : m); }
+            if (freq[15] > 0) { const m = base[62] < base[63] ? base[62] : base[63]; freq[15] += (freq[15] < m ? freq[15] : m); }
+        } else if (last === 14) {
+            freq[14] <<= 1;
+            if (freq[15] > 0) { const m = base[62] < base[63] ? base[62] : base[63]; freq[15] += (freq[15] < m ? freq[15] : m); }
+        } else if (last === 15) {
+            freq[15] <<= 1;
+            if (freq[14] > 0) { const m = base[60] < base[61] ? base[60] : base[61]; freq[14] += (freq[14] < m ? freq[14] : m); }
+        } else {
+            freq[last] <<= 1;
+            if (freq[14] > 0) { const m = base[60] < base[61] ? base[60] : base[61]; freq[14] += (freq[14] < m ? freq[14] : m); }
+            if (freq[15] > 0) { const m = base[62] < base[63] ? base[62] : base[63]; freq[15] += (freq[15] < m ? freq[15] : m); }
+        }
+
+        x[0] = hp; x[1] = atk; x[2] = def; x[3] = spd;
+        x[4] = agi; x[5] = mag; x[6] = res; x[7] = intel;
+        x.fill(0, 8);
+
+        let zd = 1, kill = 1;
+        for (let k = 0; k < 16; k++) {
+            const skId = skl_id[k], f = freq[k];
+            if (skId >= 35 || f === 0) continue;
+            if (skId == 9 || skId == 16) { x[skId+8] = zd * f; zd *= (1 - f * 0.00234375); }
+            else if (skId == 18) { x[skId+8] = zd * f; zd *= (1 - f * 0.002734375); }
+            else if (skId == 19 || skId == 23) { x[skId+8] = zd * f; zd *= (1 - f * 0.0046875); }
+            else if (skId == 20 || skId == 22) { x[skId+8] = zd * f; zd *= (1 - f * 0.00546875); }
+            else if (skId < 25) { x[skId+8] = zd * f; zd *= (1 - f * 0.0078125); }
+            else if (skId == 31 || skId == 32) { x[skId+8] = kill * f; kill *= (1 - f * 0.0078125); }
+            else { x[skId+8] = f; }
+        }
+
+        if (x[37] <= 70) { x[37] = x[37] * x[37] / 70; }
+        else { x[37] = x[37] * 2 - 70; }
+
+        if (x[32] > 0) {
+            for (let k = 0; k < nLen; k++) shadowBuf[k] = nameBuf[k];
+            const suffix = '?shadow';
+            for (let k = 0; k < suffix.length; k++) shadowBuf[nLen+k] = suffix.charCodeAt(k);
+            const sLen = nLen + suffix.length;
+            S2.set(S_team);
+            let j2 = 0, k2 = 0;
+            for (let i2 = 0; i2 < 256; i2++) { j2 = (j2 + S2[i2] + shadowBuf[k2]) & 0xFF; const t2 = S2[i2]; S2[i2] = S2[j2]; S2[j2] = t2; k2++; if (k2 >= sLen) k2 = 0; }
+            j2 = 0; k2 = 0;
+            for (let i2 = 0; i2 < 256; i2++) { j2 = (j2 + S2[i2] + shadowBuf[k2]) & 0xFF; const t2 = S2[i2]; S2[i2] = S2[j2]; S2[j2] = t2; k2++; if (k2 >= sLen) k2 = 0; }
+
+            let cnt2 = 0;
+            for (let i2 = 0; i2 < 256 && cnt2 < 31; i2++) { const m = (S2[i2] * 181 + 160) & 0xFF; if (m >= 89 && m < 217) { base2[cnt2] = m & 63; cnt2++; } }
+            if (cnt2 < 31) base2.fill(0, cnt2, 31);
+
+            for (let k = 0; k < 10; k++) arr2[k] = base2[k];
+            for (let k = 1; k < 10; k++) {
+                const v = arr2[k]; let j2 = k - 1;
+                while (j2 >= 0 && arr2[j2] > v) { arr2[j2+1] = arr2[j2]; j2--; }
+                arr2[j2+1] = v;
+            }
+            const hp2 = 154 + arr2[3] + arr2[4] + arr2[5] + arr2[6];
+            const atk2 = med3(base2[10], base2[11], base2[12]);
+            const def2 = med3(base2[13], base2[14], base2[15]);
+            const spd2 = med3(base2[16], base2[17], base2[18]);
+            const agi2 = med3(base2[19], base2[20], base2[21]);
+            const mag2 = med3(base2[22], base2[23], base2[24]);
+            const res2 = med3(base2[25], base2[26], base2[27]);
+            const intel2 = med3(base2[28], base2[29], base2[30]);
+            const shadowi = atk2*2.8 + def2*0.6 + spd2*2.5 + agi2*1.2 + mag2 + res2 - 1.2*intel2 + 0.8*hp2;
+            x[43] = shadowi * 1.0 * x[32] / 100;
+        } else { x[43] = 0; }
+
+        if (x[42] > 0) x[44] = 1;
+        if (x[37] > 0) { x[45] = x[26]; x[26] = 0; }
+
+        let scoreQP = modelAOS[0], scoreQD = modelAOS[1], scorePP = modelAOS[2], scoreCQD2 = modelAOS[3];
+        let activeLen = 0;
+        for (let k = 0; k < 46; k++) if (x[k] !== 0) active[activeLen++] = k;
+
+        for (let a2 = 0; a2 < activeLen; a2++) {
+            const k = active[a2], v = x[k], mi = (1 + k) * 4;
+            scoreQP += modelAOS[mi] * v; scoreQD += modelAOS[mi+1] * v;
+            scorePP += modelAOS[mi+2] * v; scoreCQD2 += modelAOS[mi+3] * v;
+        }
+        for (let a2 = 0; a2 < activeLen; a2++) {
+            const k = active[a2], xk = x[k];
+            for (let b = a2; b < activeLen; b++) {
+                const l = active[b];
+                const mi = pairIdx[k * 46 + l];
+                if (mi < 0) continue;
+                const v = xk * x[l];
+                const off = mi * 4;
+                scoreQP += modelAOS[off] * v; scoreQD += modelAOS[off+1] * v;
+                scorePP += modelAOS[off+2] * v; scoreCQD2 += modelAOS[off+3] * v;
+            }
+        }
+
+        let scoreCQD1 = 0;
+        if (x[32] >= 30) {
+            scoreCQD1 = cqd3[0];
+            let idx = 1;
+            for (let k = 0; k < 46; k++) scoreCQD1 += cqd3[idx++] * x[k];
+            for (let k = 0; k < 46; k++) {
+                for (let l = k; l < 46; l++) {
+                    if ((k === 26 && (l === 37 || l === 45)) || (k === 42 && l === 44) || (k === 44 && l === 44)) continue;
+                    scoreCQD1 += cqd3[idx++] * (x[k] * x[l]);
+                }
+            }
+        }
+        const scoreCQD = (scoreCQD1 > scoreCQD2 ? scoreCQD1 : scoreCQD2) * 100;
+
+        const qpP = (scoreQP + 0.5) | 0;
+        const qdP = (scoreQD + 0.5) | 0;
+        const ppP = (scorePP + 0.5) | 0;
+        const cqdP = (scoreCQD + 0.5) | 0;
+
+        const passQP = EN_QP && qpP >= TH_SQP;
+        const passQD = EN_QD && qdP >= TH_SQD;
+        const passPP = EN_PP && ppP >= TH_SPP;
+        const passCQD = EN_CQD && cqdP >= TH_SCQD;
+
+        if (passQP || passQD || passPP || passCQD) {
+            validResults.push({
+                n: n, e8: e8,
+                qp: qpP, qd: qdP, pp: ppP, cqd: cqdP,
+                pq: passQP ? 1 : 0, pd: passQD ? 1 : 0,
+                ps: passPP ? 1 : 0, pc: passCQD ? 1 : 0
+            });
+        }
+
+        // ★ 四项全能榜
+        if (CAN_ALL_ROUND && passQP && passQD && passPP && passCQD) {
+            allRoundList.push({
+                n: n, e8: e8,
+                s: prefix + " " + n + "@" + team
+                    + " | SQP:" + qpP + " SQD:" + qdP
+                    + " SPP:" + ppP + " SCQD:" + cqdP
+                    + " | 八围:" + e8.toFixed(2)
+            });
+        }
+
+        pending++;
+        if ((++tick & 255) === 0 && performance.now() - lastPostTime > 200) {
+            self.postMessage({ type: 'progress', count: pending });
+            pending = 0; lastPostTime = performance.now();
+        }
+    }
+    self.postMessage({
+        type: 'done',
+        results: validResults,
+        count: pending,
+        blockMaxE8: blockMaxE8,
+        blockE8List: blockE8List,
+        blockMaxGlow: blockMaxGlow,
+        blockGlowList: blockGlowList,
+        allRoundList: allRoundList
+    });
+};
+`;
+
+const workerUrl = URL.createObjectURL(new Blob([workerCode], { type: 'application/javascript' }));
+</script>
+</body>
+</html>
