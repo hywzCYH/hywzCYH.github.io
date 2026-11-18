@@ -1,0 +1,1333 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>名字竞技场 · 蓝字加成批量计算</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif; max-width: 1300px; margin: 20px auto; padding: 0 16px; color: #222; line-height: 1.5; }
+  h1 { font-size: 20px; margin: 0 0 8px; }
+  h2 { font-size: 16px; margin: 24px 0 8px; }
+  h3 { font-size: 15px; margin: 16px 0 8px; color: #444; }
+  .group { background: #f7f8fa; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 16px; margin: 10px 0; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; }
+  .group label { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
+  .feature-section { background: #fff; border: 1px solid #e3e6eb; border-radius: 12px; padding: 16px 20px; margin: 14px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+  input[type=text], input[type=number], select { padding: 6px 10px; border: 1px solid #ccd; border-radius: 6px; font-size: 14px; outline: none; background: #fff; }
+  input[type=text]:focus, input[type=number]:focus, select:focus { border-color: #5a7cff; }
+  input[type=number] { width: 150px; }
+  input[type=text] { width: 220px; }
+  input.th-input { width: 62px; padding: 5px 8px; }
+  input.short-num { width: 110px; }
+  button { padding: 7px 16px; border: 1px solid #5a7cff; background: #fff; color: #2b52e0; border-radius: 6px; cursor: pointer; font-size: 14px; transition: background .15s; }
+  button:hover:not(:disabled) { background: #eef2ff; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  button.primary { background: #2b52e0; color: #fff; }
+  button.primary:hover:not(:disabled) { background: #1e3fc4; }
+  button.small { padding: 5px 10px; font-size: 13px; }
+  button.ghost { border-color: #ccd; color: #555; }
+  button.ghost:hover:not(:disabled) { background: #f2f3f6; }
+  button.warn { border-color: #dc2626; color: #dc2626; }
+  button.warn:hover:not(:disabled) { background: #fef2f2; }
+  button.unit-btn.active { background: #2b52e0; color: #fff; border-color: #2b52e0; }
+  textarea#historyText { width: 100%; height: 130px; padding: 10px; border: 1px solid #ccd; border-radius: 8px; font-family: ui-monospace, monospace; font-size: 13px; outline: none; resize: vertical; box-sizing: border-box; }
+  textarea#historyText:focus { border-color: #5a7cff; }
+  .prog-bar { width: 100%; height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden; margin: 12px 0 4px; }
+  .prog-fill { height: 100%; background: linear-gradient(90deg, #3b82f6, #60a5fa); width: 0%; transition: width 0.15s; }
+  .progress-text { margin: 8px 0; font-family: ui-monospace, monospace; font-size: 14px; color: #444; min-height: 20px; }
+  .prefix-hint { color: #888; font-size: 12px; margin-left: 4px; }
+  .prefix-hint.over { color: #c00; font-weight: 600; }
+  .summary { margin: 14px 0 4px; font-size: 15px; color: #222; padding: 10px 14px; background: #eef4ff; border: 1px solid #cfdcff; border-radius: 8px; font-family: ui-monospace, monospace; }
+  .summary b { color: #c00; }
+  .summary .merged { color: #0a7b3e; font-weight: 600; }
+  table { border-collapse: collapse; width: 100%; margin-top: 8px; font-size: 14px; }
+  th, td { border: 1px solid #dde0e6; padding: 8px 10px; text-align: left; vertical-align: top; }
+  th { background: #eef0f5; font-weight: 600; white-space: nowrap; }
+  td.val { font-weight: 700; color: #c00; white-space: nowrap; }
+  td.val.none { color: #999; font-weight: 400; }
+  td.cnt { text-align: right; white-space: nowrap; font-family: ui-monospace, monospace; }
+  td.ex { font-family: ui-monospace, monospace; font-size: 12px; word-break: break-all; color: #333; max-width: 720px; }
+  .hint { color: #888; font-size: 13px; }
+  code { background: #eef0f5; padding: 1px 5px; border-radius: 3px; font-size: 13px; }
+  .sep { width: 1px; height: 24px; background: #dde0e6; }
+  #toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.82); color: #fff; padding: 10px 22px; border-radius: 8px; font-size: 14px; z-index: 9999; opacity: 0; transition: opacity .3s; pointer-events: none; }
+</style>
+</head>
+<body>
+
+<h1>名字竞技场 · 蓝字加成批量计算</h1>
+
+<h2>基础配置（两种模式共用）</h2>
+<div class="group">
+  <label>前缀：<input type="text" id="prefix" placeholder="例如：剑" oninput="updatePrefixBytes()">
+    <span id="prefixBytes" class="prefix-hint">0 / 50 字节</span>
+  </label>
+  <span class="sep"></span>
+  <span>线程数：</span>
+  <label><input type="radio" name="threads" value="4"> 4 线程</label>
+  <label><input type="radio" name="threads" value="6" checked> 6 线程</label>
+  <label><input type="radio" name="threads" value="8"> 8 线程</label>
+</div>
+
+<div class="group">
+  <span>阈值（0 表示不限制）：</span>
+  <button type="button" class="small ghost" onclick="applyPreset('standard')">标准预设</button>
+</div>
+<div class="group">
+  <label>HP: <input type="number" id="th_HP" class="th-input" value="122" min="0"></label>
+  <label>攻: <input type="number" id="th_atk" class="th-input" value="41" min="0"></label>
+  <label>防: <input type="number" id="th_def" class="th-input" value="41" min="0"></label>
+  <label>速: <input type="number" id="th_spd" class="th-input" value="41" min="0"></label>
+  <label>敏: <input type="number" id="th_agi" class="th-input" value="41" min="0"></label>
+  <label>魔: <input type="number" id="th_mag" class="th-input" value="41" min="0"></label>
+  <label>抗: <input type="number" id="th_res" class="th-input" value="41" min="0"></label>
+  <label>智: <input type="number" id="th_int" class="th-input" value="23" min="0"></label>
+  <label>七围总和: <input type="number" id="th_total" class="th-input" value="42" min="0"></label>
+</div>
+
+<!-- ============ 范围测号 ============ -->
+<div class="feature-section" id="rangeSection">
+  <h2>📏 范围测号</h2>
+  <p class="hint">按固定号段扫描：实际范围 = Unit × Start 到 Unit × End（左闭右开）</p>
+
+  <div class="group">
+    <span>Unit：</span>
+    <button type="button" class="small unit-btn active" data-unit="1" onclick="setUnit(1)">1</button>
+    <button type="button" class="small unit-btn" data-unit="1000000" onclick="setUnit(1000000)">100w</button>
+    <button type="button" class="small unit-btn" data-unit="10000000" onclick="setUnit(10000000)">1000w</button>
+    <button type="button" class="small unit-btn" data-unit="100000000" onclick="setUnit(100000000)">1E</button>
+    <button type="button" class="small unit-btn" data-unit="1000000000" onclick="setUnit(1000000000)">10E</button>
+    <button type="button" class="small unit-btn" data-unit="100000000000" onclick="setUnit(100000000000)">100E</button>
+    <span class="sep"></span>
+    <label>Start：<input type="number" id="startNum" value="" min="0" placeholder="必填" oninput="updateRangeDisplay()"></label>
+    <label>End：<input type="number" id="endNum" value="" min="1" placeholder="必填" oninput="updateRangeDisplay()"></label>
+    <span id="rangeDisplay" class="hint">请输入 Start 和 End</span>
+  </div>
+
+  <div class="group">
+    <button type="button" id="rangeRunBtn" class="primary" onclick="startRangeRun()">开始范围测号</button>
+    <button type="button" id="rangePauseBtn" onclick="pauseOrResumeRange()" disabled>暂停</button>
+  </div>
+
+  <div class="prog-bar"><div class="prog-fill" id="rangeProgFill"></div></div>
+  <div id="rangeProgress" class="progress-text"></div>
+  <div id="rangeResults"></div>
+</div>
+
+<!-- ============ 限时跑号 ============ -->
+<div class="feature-section" id="timedSection">
+  <h2>⏱ 限时跑号</h2>
+  <p class="hint">从指定号开始跑到时间耗尽，自动汇报最后号，方便下次接力。</p>
+
+  <div class="group">
+    <label>起始号：<input type="number" id="timedStart" class="short-num" value="0" min="0" placeholder="必填"></label>
+    <label>时长：<input type="number" id="timedDuration" class="short-num" value="60" min="1"></label>
+    <label>单位：
+      <select id="timedUnit" style="width:80px;">
+        <option value="1">秒</option>
+        <option value="60">分</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="group">
+    <button type="button" id="timedRunBtn" class="primary" onclick="startTimedRun()">开始限时跑号</button>
+    <button type="button" id="timedPauseBtn" onclick="pauseOrResumeTimed()" disabled>暂停</button>
+  </div>
+
+  <div class="prog-bar"><div class="prog-fill" id="timedProgFill"></div></div>
+  <div id="timedProgress" class="progress-text"></div>
+  <div id="timedResults"></div>
+</div>
+
+<!-- ============ 历史数据 ============ -->
+<h2>历史数据（可选，跑完后自动合并）</h2>
+<p class="hint">
+  格式为每行 <code>类别&lt;TAB&gt;最高值&lt;TAB&gt;并列数&lt;TAB&gt;样例列表（逗号分隔）</code>，
+  例如 <code>HP 加成&#9;344&#9;3&#9;x, y, z</code>。自动保存到浏览器，下次打开自动恢复。
+</p>
+<div style="margin: 6px 0;">
+  <textarea id="historyText" placeholder="在此粘贴历史数据（可留空）" oninput="saveHistory()"></textarea>
+</div>
+<div class="group" style="margin-top:0;">
+  <button type="button" class="small" onclick="pasteHistory()">一键粘贴</button>
+  <button type="button" class="small ghost" onclick="clearHistory()">一键删除</button>
+  <button type="button" class="small warn" id="undoMergeBtn" onclick="undoMerge()" style="display:none;">撤销合并</button>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ============================================================
+ *  核心算法
+ * ============================================================ */
+const coreCode = `
+'use strict';
+const _S    = new Uint8Array(256);
+const _S0   = new Uint8Array(256);
+for(let i=0;i<256;i++) _S0[i] = i;
+const _keyBuf = new Uint8Array(96);
+const _add    = new Int32Array(8);
+
+let _prefixLen = 0;
+let _digitLen  = 1;
+
+function setPrefix(bytes){
+  _prefixLen = bytes.length;
+  _keyBuf[0] = 0;
+  for(let i=0;i<bytes.length;i++) _keyBuf[1+i] = bytes[i];
+}
+
+function weaponAddFast(n){
+  const base = 1 + _prefixLen;
+  const dl = _digitLen;
+  let tmp = n;
+  for(let i = dl - 1; i >= 0; i--){
+    _keyBuf[base + i] = 48 + (tmp % 10);
+    tmp = Math.floor(tmp / 10);
+  }
+  const kl = 1 + _prefixLen + dl;
+
+  const S = _S;
+  const kb = _keyBuf;
+  S.set(_S0);
+
+  let j = 0, ki = 0;
+  for(let i = 0; i < 256; i++){
+    j = (j + S[i] + kb[ki]) & 0xFF;
+    const t = S[i]; S[i] = S[j]; S[j] = t;
+    ki++; if(ki === kl) ki = 0;
+  }
+  j = 0; ki = 0;
+  for(let i = 0; i < 256; i++){
+    j = (j + S[i] + kb[ki]) & 0xFF;
+    const t = S[i]; S[i] = S[j]; S[j] = t;
+    ki++; if(ki === kl) ki = 0;
+  }
+
+  const h0 = S[0]&63, h1 = S[1]&63, h2 = S[2]&63, h3 = S[3]&63;
+  const h4 = S[4]&63, h5 = S[5]&63, h6 = S[6]&63, h7 = S[7]&63;
+  const g0 = S[40]&63, g1 = S[41]&63, g2 = S[42]&63, g3 = S[43]&63;
+  const g4 = S[44]&63, g5 = S[45]&63, g6 = S[46]&63, g7 = S[47]&63;
+
+  let pj = S[1]; let t = S[1]; S[1] = S[pj]; S[pj] = t;
+  let vb = S[(S[1] + S[pj]) & 0xFF];
+  pj = (pj + S[2]) & 0xFF; t = S[2]; S[2] = S[pj]; S[pj] = t;
+  vb = ((vb << 8) | S[(S[2] + S[pj]) & 0xFF]) >>> 0;
+  pj = (pj + S[3]) & 0xFF; t = S[3]; S[3] = S[pj]; S[pj] = t;
+  let vb2 = S[(S[3] + S[pj]) & 0xFF];
+  pj = (pj + S[4]) & 0xFF; t = S[4]; S[4] = S[pj]; S[pj] = t;
+  vb2 = ((vb2 << 8) | S[(S[4] + S[pj]) & 0xFF]) >>> 0;
+
+  const attrId = vb2 >= 8 ? vb2 % 8 : vb2;
+
+  let s0, s1, s2, s3, s4, s5, s6, s7;
+  if(attrId === 6){
+    s0 = g0; s1 = g1; s2 = g2; s3 = g3;
+    s4 = g4; s5 = g5; s6 = g6; s7 = g7;
+  } else {
+    s0 = g0 > 53 ? g0 - 50 : 0;
+    s1 = g1 > 53 ? g1 - 50 : 0;
+    s2 = g2 > 53 ? g2 - 50 : 0;
+    s3 = g3 > 53 ? g3 - 50 : 0;
+    s4 = g4 > 53 ? g4 - 50 : 0;
+    s5 = g5 > 53 ? g5 - 50 : 0;
+    s6 = g6 > 53 ? g6 - 50 : 0;
+    s7 = g7 > 53 ? g7 - 50 : 0;
+    if(attrId === 0) s0 = 18;
+    else if(attrId === 1) s1 = 18;
+    else if(attrId === 2) s2 = 18;
+    else if(attrId === 3) s3 = 18;
+    else if(attrId === 4) s4 = 18;
+    else if(attrId === 5) s5 = 18;
+    else s7 = 18;
+  }
+
+  let total = 0, posLen = 0;
+  if(s0 > 0){ total += s0; posLen++; }
+  if(s1 > 0){ total += s1; posLen++; }
+  if(s2 > 0){ total += s2; posLen++; }
+  if(s3 > 0){ total += s3; posLen++; }
+  if(s4 > 0){ total += s4; posLen++; }
+  if(s5 > 0){ total += s5; posLen++; }
+  if(s6 > 0){ total += s6; posLen++; }
+  if(s7 > 0){ total += s7; posLen++; }
+  total *= 3;
+
+  let l0=h0, l1=h1, l2=h2, l3=h3, l4=h4, l5=h5, l6=h6, l7=h7, x;
+  if(l0>l1){x=l0;l0=l1;l1=x;}
+  if(l2>l3){x=l2;l2=l3;l3=x;}
+  if(l4>l5){x=l4;l4=l5;l5=x;}
+  if(l6>l7){x=l6;l6=l7;l7=x;}
+  if(l0>l2){x=l0;l0=l2;l2=x;}
+  if(l1>l3){x=l1;l1=l3;l3=x;}
+  if(l4>l6){x=l4;l4=l6;l6=x;}
+  if(l5>l7){x=l5;l5=l7;l7=x;}
+  if(l1>l2){x=l1;l1=l2;l2=x;}
+  if(l5>l6){x=l5;l5=l6;l6=x;}
+  if(l0>l4){x=l0;l0=l4;l4=x;}
+  if(l3>l7){x=l3;l3=l7;l7=x;}
+  if(l1>l5){x=l1;l1=l5;l5=x;}
+  if(l2>l6){x=l2;l2=l6;l6=x;}
+  if(l1>l4){x=l1;l1=l4;l4=x;}
+  if(l3>l6){x=l3;l3=l6;l6=x;}
+  if(l2>l4){x=l2;l2=l4;l4=x;}
+  if(l3>l5){x=l3;l3=l5;l5=x;}
+  if(l3>l4){x=l3;l3=l4;l4=x;}
+
+  const attrLevel = l1 + l4 + posLen;
+
+  if(total === 0){
+    _add[0]=0; _add[1]=0; _add[2]=0; _add[3]=0;
+    _add[4]=0; _add[5]=0; _add[6]=0; _add[7]=0;
+    return _add;
+  }
+
+  _add[7] = 0;
+  let hpLeft = attrLevel;
+  let tt;
+  tt = (attrLevel * s0 / total) | 0; hpLeft -= 3 * tt; _add[0] = tt;
+  tt = (attrLevel * s1 / total) | 0; hpLeft -= 3 * tt; _add[1] = tt;
+  tt = (attrLevel * s2 / total) | 0; hpLeft -= 3 * tt; _add[2] = tt;
+  tt = (attrLevel * s3 / total) | 0; hpLeft -= 3 * tt; _add[3] = tt;
+  tt = (attrLevel * s4 / total) | 0; hpLeft -= 3 * tt; _add[4] = tt;
+  tt = (attrLevel * s5 / total) | 0; hpLeft -= 3 * tt; _add[5] = tt;
+  tt = (attrLevel * s6 / total) | 0; hpLeft -= 3 * tt; _add[6] = tt;
+  if(s7 > 0) _add[7] = hpLeft;
+
+  return _add;
+}
+`;
+
+/* ============================================================
+ *  Worker 端
+ * ============================================================ */
+const workerHandlerCode = `
+let _prefixStr = '';
+
+function updateStat(s, v, n, cap){
+  const name = _prefixStr + n;
+  if(v > s.max){
+    s.max = v; s.count = 1;
+    s.examples.length = 0;
+    s.set.clear();
+    s.set.add(name);
+    s.examples.push(name);
+  } else if(v === s.max){
+    s.count++;
+    if(s.examples.length < cap && !s.set.has(name)){
+      s.set.add(name);
+      s.examples.push(name);
+    }
+  }
+}
+
+self.onmessage = function(e){
+  if(!e.data || e.data.type === 'done_signal') return;
+  _prefixStr = e.data.prefix;
+  const prefixBytes = e.data.prefixBytes;
+  const start = e.data.start;
+  const end = e.data.end;
+  const th = e.data.thresholds;
+  const totalRange = end - start;
+  const MAX_EX = 1000000;
+
+  const thHP = th.HP, thAtk = th.atk, thDef = th.def, thSpd = th.spd;
+  const thAgi = th.agi, thMag = th.mag, thRes = th.res, thInt = th.int, thTot = th.total;
+
+  setPrefix(prefixBytes);
+
+  const keys = ['HP','atk','def','spd','agi','mag','res','int','total'];
+  const stats = {};
+  for(let k=0;k<9;k++) stats[keys[k]] = {max: -Infinity, count: 0, examples: [], set: new Set()};
+
+  let done = 0, tick = 0;
+  let segStart = start;
+
+  while(segStart < end){
+    let digitLen, segEnd;
+    if(segStart === 0){
+      digitLen = 1; segEnd = Math.min(10, end);
+    } else {
+      let dl = 1, p = 10;
+      while(segStart >= p){ dl++; p *= 10; }
+      digitLen = dl; segEnd = Math.min(p, end);
+    }
+    _digitLen = digitLen;
+
+    for(let n = segStart; n < segEnd; n++){
+      const a = weaponAddFast(n);
+      const vAtk = a[0], vDef = a[1], vSpd = a[2], vAgi = a[3];
+      const vMag = a[4], vRes = a[5], vInt = a[6], vHP  = a[7];
+
+      if(vHP  >= thHP)  updateStat(stats.HP,  vHP,  n, MAX_EX);
+      if(vAtk >= thAtk) updateStat(stats.atk, vAtk, n, MAX_EX);
+      if(vDef >= thDef) updateStat(stats.def, vDef, n, MAX_EX);
+      if(vSpd >= thSpd) updateStat(stats.spd, vSpd, n, MAX_EX);
+      if(vAgi >= thAgi) updateStat(stats.agi, vAgi, n, MAX_EX);
+      if(vMag >= thMag) updateStat(stats.mag, vMag, n, MAX_EX);
+      if(vRes >= thRes) updateStat(stats.res, vRes, n, MAX_EX);
+      if(vInt >= thInt) updateStat(stats.int, vInt, n, MAX_EX);
+
+      let nonZero = 0;
+      if(vAtk > 0) nonZero++;
+      if(vDef > 0) nonZero++;
+      if(vSpd > 0) nonZero++;
+      if(vAgi > 0) nonZero++;
+      if(vMag > 0) nonZero++;
+      if(vRes > 0) nonZero++;
+      if(vInt > 0) nonZero++;
+      if(nonZero >= 2){
+        const vTot = vAtk + vDef + vSpd + vAgi + vMag + vRes + vInt;
+        if(vTot >= thTot) updateStat(stats.total, vTot, n, MAX_EX);
+      }
+
+      done++;
+      if((++tick & 8191) === 0){
+        self.postMessage({type:'progress', done: done, total: totalRange, n: n});
+      }
+    }
+    segStart = segEnd;
+  }
+  self.postMessage({type:'done', stats: stats, count: done, lastN: end - 1});
+};
+`;
+
+/* ============================================================
+ *  主线程共享状态
+ * ============================================================ */
+const KEYS   = ['HP','atk','def','spd','agi','mag','res','int','total'];
+const ORDER  = ['HP','atk','def','spd','agi','mag','res','int','total'];
+const LABELS = {
+  HP: 'HP 加成', atk: '攻 加成', def: '防 加成', spd: '速 加成',
+  agi: '敏 加成', mag: '魔 加成', res: '抗 加成', int: '智 加成',
+  total: '七围总加成（攻+防+速+敏+魔+抗+智）'
+};
+const HISTORY_KEY = 'namerena_weapon_history_v1';
+const PRESETS = {
+  standard: { HP: 122, atk: 41, def: 41, spd: 41, agi: 41, mag: 41, res: 41, int: 23, total: 42 }
+};
+const MAX_EX = 1000000;
+
+let currentUnit = 1;
+let activeMode = null;
+
+let running = false;
+let workers = [];
+let blobUrl = null;
+let progressMap = {};
+let activeWorkers = 0;
+let completedWorkers = 0;
+let rawStats = null;
+let totalRange = 0;
+let runStartTime = 0;
+let accumulatedMs = 0;
+
+let nextStart = 0;
+let actualEnd = 0;
+let blockSize = 0;
+let completedCount = 0;
+let runParams = null;
+
+let timedEndAt = 0;
+let timedLastN = 0;
+let lastLiveRender = 0;
+
+let pauseState = null;
+
+let rangeResults = null;
+let timedResults = null;
+
+let preMergeStats = null;
+let preMergeMode = null;
+
+function $(id){ return document.getElementById(id); }
+
+function toast(msg){
+  const el = $('toast');
+  el.textContent = msg;
+  el.style.opacity = '1';
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => { el.style.opacity = '0'; }, 1800);
+}
+
+function updatePrefixBytes(){
+  const prefix = $('prefix').value;
+  const len = new TextEncoder().encode(prefix).length;
+  const el = $('prefixBytes');
+  el.textContent = len + ' / 50 字节';
+  el.className = 'prefix-hint' + (len > 50 ? ' over' : '');
+}
+
+function setUnit(v){
+  currentUnit = v;
+  const btns = document.querySelectorAll('#rangeSection .unit-btn');
+  for(let i=0;i<btns.length;i++){
+    btns[i].classList.toggle('active', parseInt(btns[i].dataset.unit, 10) === v);
+  }
+  updateRangeDisplay();
+}
+
+function getRangeValues(){
+  const startStr = $('startNum').value.trim();
+  const endStr = $('endNum').value.trim();
+  return {
+    unit: currentUnit,
+    startStr, endStr,
+    start: startStr === '' ? NaN : parseInt(startStr, 10),
+    end: endStr === '' ? NaN : parseInt(endStr, 10)
+  };
+}
+
+function updateRangeDisplay(){
+  const { unit, startStr, endStr, start, end } = getRangeValues();
+  const el = $('rangeDisplay');
+  if(startStr === '' || endStr === ''){
+    el.textContent = '请输入 Start 和 End';
+    return;
+  }
+  if(!Number.isFinite(unit) || unit <= 0 || !Number.isFinite(start) || !Number.isFinite(end)
+     || start < 0 || end <= start){
+    el.textContent = '范围无效';
+    return;
+  }
+  const actualStart = unit * start;
+  const actualEnd = unit * end;
+  if(!Number.isSafeInteger(actualStart) || !Number.isSafeInteger(actualEnd) || actualEnd > Number.MAX_SAFE_INTEGER){
+    el.textContent = '范围超出安全整数';
+    return;
+  }
+  const count = actualEnd - actualStart;
+  el.textContent = '实际范围：[' + actualStart.toLocaleString()
+                 + ', ' + actualEnd.toLocaleString() + ')，共 '
+                 + count.toLocaleString() + ' 项';
+}
+
+function applyPreset(name){
+  const p = PRESETS[name];
+  if(!p) return;
+  for(const k of KEYS) $('th_' + k).value = p[k];
+  toast('已应用标准预设');
+}
+
+function readThresholds(){
+  const t = {};
+  for(const k of KEYS){
+    const v = parseInt($('th_' + k).value, 10);
+    t[k] = Number.isFinite(v) ? Math.max(0, v) : 0;
+  }
+  return t;
+}
+
+function saveHistory(){
+  try { localStorage.setItem(HISTORY_KEY, $('historyText').value); } catch(e){}
+}
+function loadHistory(){
+  try {
+    const v = localStorage.getItem(HISTORY_KEY);
+    if(v !== null) $('historyText').value = v;
+  } catch(e){}
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, ch => ({
+    '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+  }[ch]));
+}
+function fmtSeconds(ms){ return (ms / 1000).toFixed(3) + ' 秒'; }
+function cloneStats(src){
+  const out = {};
+  for(const k of KEYS){
+    const s = src[k];
+    out[k] = { max: s.max, count: s.count, examples: s.examples.slice(), set: new Set(s.examples) };
+  }
+  return out;
+}
+
+function mergeStats(dst, src){
+  for(const k in src){
+    const s = src[k], d = dst[k];
+    if(s.max > d.max){
+      d.max = s.max; d.count = s.count;
+      d.examples = s.examples.slice();
+      d.set = new Set(d.examples);
+    } else if(s.max === d.max){
+      d.count += s.count;
+      if(d.examples.length < MAX_EX){
+        for(let i=0; i<s.examples.length && d.examples.length < MAX_EX; i++){
+          const ex = s.examples[i];
+          if(!d.set.has(ex)){ d.examples.push(ex); d.set.add(ex); }
+        }
+      }
+    }
+  }
+}
+
+function normalizeKey(name){
+  const n = name.replace(/\s+/g, '').toLowerCase();
+  if(n === 'hp' || n === 'hp加成' || n === '生命') return 'HP';
+  if(n === '攻' || n === 'atk' || n === '攻击' || n === '攻击加成' || n === '攻加成') return 'atk';
+  if(n === '防' || n === 'def' || n === '防御' || n === '防御加成' || n === '防加成') return 'def';
+  if(n === '速' || n === 'spd' || n === '速度' || n === '速度加成' || n === '速加成') return 'spd';
+  if(n === '敏' || n === 'agi' || n === '敏捷' || n === '敏捷加成' || n === '敏加成') return 'agi';
+  if(n === '魔' || n === 'mag' || n === '魔法' || n === '魔法加成' || n === '魔加成') return 'mag';
+  if(n === '抗' || n === 'res' || n === '抗性' || n === '抗性加成' || n === '抗加成') return 'res';
+  if(n === '智' || n === 'int' || n === '智力' || n === '智力加成' || n === '智加成') return 'int';
+  if(n === '七围' || n === 'total' || n === '七围总加成' || n === '总和' || n === '七围总和') return 'total';
+  return null;
+}
+
+function parseHistory(text){
+  const result = {};
+  for(const k of KEYS) result[k] = null;
+  if(!text) return result;
+  const lines = text.split(/\r?\n/);
+  for(const rawLine of lines){
+    const line = rawLine.replace(/\u3000/g, ' ').trim();
+    if(!line) continue;
+    if(line.startsWith('#') || line.startsWith('//')) continue;
+    let parts = line.split('\t');
+    if(parts.length < 2) parts = line.split('|');
+    if(parts.length < 2) continue;
+    const key = normalizeKey(parts[0].trim());
+    if(!key) continue;
+    const rawVal = parts[1].trim();
+    const val = parseInt(rawVal.replace(/^[+＋]/, ''), 10);
+    if(!Number.isFinite(val)) continue;
+    let count = 1;
+    if(parts[2]){
+      const c = parseInt(parts[2].trim(), 10);
+      if(Number.isFinite(c) && c >= 1) count = c;
+    }
+    const examplesStr = parts[3] ? parts[3].trim() : '';
+    let examples = examplesStr
+      ? examplesStr.split(/[,，、;；]/).map(s => s.trim()).filter(Boolean)
+      : [];
+    if(examples.length){
+      const seen = new Set();
+      const uniq = [];
+      for(const ex of examples){
+        if(!seen.has(ex)){ uniq.push(ex); seen.add(ex); }
+      }
+      examples = uniq;
+    }
+    if(examples.length > MAX_EX) examples.length = MAX_EX;
+    result[key] = { max: val, count: count, examples: examples };
+  }
+  return result;
+}
+
+function mergeWithHistory(current, history){
+  for(const key of KEYS){
+    const h = history[key];
+    if(!h || !Number.isFinite(h.max)) continue;
+    const c = current[key];
+    if(c.max === -Infinity || h.max > c.max){
+      const seen = new Set();
+      const exs = [];
+      for(const ex of h.examples){
+        if(!seen.has(ex)){ exs.push(ex); seen.add(ex); }
+        if(exs.length >= MAX_EX) break;
+      }
+      current[key] = { max: h.max, count: h.count, examples: exs };
+    } else if(c.max === h.max){
+      c.count += h.count;
+      const seen = new Set(c.examples);
+      for(let i = 0; i < h.examples.length && c.examples.length < MAX_EX; i++){
+        const ex = h.examples[i];
+        if(!seen.has(ex)){ c.examples.push(ex); seen.add(ex); }
+      }
+    }
+  }
+}
+
+function buildCopyText(stats){
+  const lines = [];
+  for(const k of ORDER){
+    const g = stats[k];
+    if(!g || g.max === -Infinity){
+      lines.push(LABELS[k] + '\t无\t0\t');
+    } else {
+      lines.push(LABELS[k] + '\t' + g.max + '\t' + g.count + '\t' + g.examples.join(', '));
+    }
+  }
+  return lines.join('\n');
+}
+
+async function copyResults(mode){
+  const stats = mode === 'range' ? rangeResults : timedResults;
+  if(!stats){ toast('还没有可复制的结果'); return; }
+  const text = buildCopyText(stats);
+  let ok = false;
+  try {
+    if(navigator.clipboard && window.isSecureContext){
+      await navigator.clipboard.writeText(text);
+      ok = true;
+    }
+  } catch(e){ ok = false; }
+  if(!ok){
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); document.body.removeChild(ta);
+      ok = true;
+    } catch(e){ ok = false; }
+  }
+  toast(ok ? '结果已复制到剪贴板' : '复制失败，请手动选中表格复制');
+}
+
+async function pasteHistory(){
+  let text = '';
+  try {
+    if(navigator.clipboard && window.isSecureContext){
+      text = await navigator.clipboard.readText();
+    }
+  } catch(e){ text = ''; }
+  if(!text){
+    toast('无法读取剪贴板，请手动 Ctrl+V 粘贴');
+    $('historyText').focus();
+    return;
+  }
+  $('historyText').value = text;
+  saveHistory();
+  toast('已粘贴到历史数据框');
+}
+
+function clearHistory(){
+  $('historyText').value = '';
+  saveHistory();
+  toast('历史数据已清空');
+}
+
+function manualMerge(mode){
+  const stats = mode === 'range' ? rangeResults : timedResults;
+  if(!stats){ toast('请先运行一次该模式'); return; }
+  const text = $('historyText').value;
+  if(!text.trim()){ toast('历史数据框为空'); return; }
+  const history = parseHistory(text);
+  if(!history || KEYS.every(k => !history[k])){
+    toast('历史数据格式无法识别');
+    return;
+  }
+  preMergeStats = cloneStats(stats);
+  preMergeMode = mode;
+
+  mergeWithHistory(stats, history);
+  $('undoMergeBtn').style.display = 'inline-block';
+
+  if(mode === 'range'){
+    if(rangeLastInfo) renderRangeResults(rangeLastInfo.prefixStr, rangeLastInfo.start, rangeLastInfo.end, rangeLastInfo.elapsedMs, true, false);
+  } else {
+    if(timedLastInfo) renderTimedResults(timedLastInfo.prefixStr, timedLastInfo.start, timedLastInfo.end, timedLastInfo.elapsedMs, timedLastInfo.lastN, false);
+  }
+  toast('已与历史数据合并');
+}
+
+function undoMerge(){
+  if(!preMergeStats){ toast('没有可撤销的合并'); return; }
+  if(preMergeMode === 'range') rangeResults = preMergeStats;
+  else if(preMergeMode === 'timed') timedResults = preMergeStats;
+  preMergeStats = null;
+  preMergeMode = null;
+  $('undoMergeBtn').style.display = 'none';
+  if(rangeLastInfo) renderRangeResults(rangeLastInfo.prefixStr, rangeLastInfo.start, rangeLastInfo.end, rangeLastInfo.elapsedMs, true, false);
+  if(timedLastInfo) renderTimedResults(timedLastInfo.prefixStr, timedLastInfo.start, timedLastInfo.end, timedLastInfo.elapsedMs, timedLastInfo.lastN, false);
+  toast('已撤销合并');
+}
+
+function currentElapsedMs(){
+  return accumulatedMs + (running ? performance.now() - runStartTime : 0);
+}
+
+function getProgressAndRate(){
+  let sum = completedCount;
+  for(const k in progressMap) sum += progressMap[k];
+  if(sum > totalRange) sum = totalRange;
+  const elapsed = currentElapsedMs() / 1000;
+  const rate = elapsed > 0 ? sum / elapsed : 0;
+  return { sum, elapsed, rate };
+}
+
+function updateRangeProgress(){
+  const { sum, elapsed, rate } = getProgressAndRate();
+  const pct = totalRange > 0 ? Math.min(100, sum / totalRange * 100) : 0;
+  $('rangeProgFill').style.width = pct.toFixed(2) + '%';
+  let remainText = '';
+  if(running && rate > 0 && sum < totalRange){
+    const remain = (totalRange - sum) / rate;
+    remainText = remain < 3600 ? ' | 预计剩余 ' + remain.toFixed(1) + 's' : ' | 预计剩余 ' + (remain / 60).toFixed(1) + 'min';
+  }
+  $('rangeProgress').textContent =
+    '进度：' + pct.toFixed(2) + '%  (' + sum.toLocaleString() + ' / ' + totalRange.toLocaleString() + ')'
+    + '  用时 ' + elapsed.toFixed(1) + 's  速率 ' + (rate / 10000).toFixed(1) + ' 万/秒' + remainText;
+}
+
+function updateTimedProgress(){
+  const { sum, elapsed, rate } = getProgressAndRate();
+  const left = Math.max(0, (timedEndAt - performance.now()) / 1000);
+  let pct;
+  if(runParams && runParams.timedSeconds > 0){
+    pct = Math.min(100, elapsed / runParams.timedSeconds * 100);
+  } else {
+    pct = 100;
+  }
+  $('timedProgFill').style.width = pct.toFixed(2) + '%';
+  $('timedProgress').textContent =
+    '已处理 ' + sum.toLocaleString() + ' 个'
+    + '  已用 ' + elapsed.toFixed(1) + 's'
+    + '  剩余 ' + left.toFixed(1) + 's'
+    + '  速率 ' + (rate / 10000).toFixed(1) + ' 万/秒'
+    + (timedLastN > 0 ? '  | 当前最后号（约）：' + (runParams ? runParams.prefix : '') + timedLastN : '');
+}
+
+function updateProgress(){
+  if(activeMode === 'range') updateRangeProgress();
+  else if(activeMode === 'timed') updateTimedProgress();
+}
+
+function tryLiveRender(){
+  if(!running) return;
+  const now = performance.now();
+  if(now - lastLiveRender < 300) return;
+  lastLiveRender = now;
+
+  if(activeMode === 'range'){
+    rangeResults = rawStats;
+    if(!rangeLastInfo) rangeLastInfo = { prefixStr: runParams.prefix, start: runParams.actualStart, end: runParams.actualEnd, elapsedMs: 0, merged: false };
+    renderRangeResults(runParams.prefix, runParams.actualStart, runParams.actualEnd, currentElapsedMs(), false, true);
+  } else if(activeMode === 'timed'){
+    timedResults = rawStats;
+    if(!timedLastInfo) timedLastInfo = { prefixStr: runParams.prefix, start: runParams.actualStart, end: runParams.actualEnd, elapsedMs: 0, lastN: -1, merged: false };
+    let lastN = Math.max(runParams.actualStart, nextStart - 1);
+    renderTimedResults(runParams.prefix, runParams.actualStart, nextStart, currentElapsedMs(), lastN, true);
+  }
+}
+
+function readCommonParams(){
+  const prefix = $('prefix').value;
+  const prefixBytes = new TextEncoder().encode(prefix);
+  if(prefixBytes.length > 50){
+    alert('前缀过长（UTF-8 超过 50 字节），请缩短');
+    return null;
+  }
+  const thEl = document.querySelector('input[name="threads"]:checked');
+  return {
+    prefix, prefixBytes,
+    threads: thEl ? parseInt(thEl.value, 10) : 6,
+    thresholds: readThresholds()
+  };
+}
+
+function startRangeRun(){
+  try {
+    if(activeMode) { toast('有任务正在运行中，请先暂停/停止'); return; }
+
+    const common = readCommonParams();
+    if(!common) return;
+
+    const { unit, start, end } = getRangeValues();
+    if(!Number.isFinite(unit) || unit <= 0){ alert('Unit 无效'); return; }
+    if(!Number.isFinite(start) || !Number.isFinite(end) || end <= start){
+      alert('Start / End 无效：End 必须大于 Start'); return;
+    }
+    const actualStart = unit * start;
+    const actualEndVal = unit * end;
+    if(!Number.isSafeInteger(actualStart) || !Number.isSafeInteger(actualEndVal) || actualEndVal > Number.MAX_SAFE_INTEGER){
+      alert('范围超出安全整数范围（9,007,199,254,740,991），请减小输入或单位。');
+      return;
+    }
+
+    // ★ 修复：彻底移除了 range > 2e8 的 confirm 弹窗，直接启动
+
+    runWithParams({
+      prefix: common.prefix, prefixBytes: common.prefixBytes,
+      actualStart, actualEnd: actualEndVal,
+      threads: common.threads, thresholds: common.thresholds,
+      timedSeconds: 0
+    }, 'range');
+  } catch(e) {
+    alert("启动范围测号失败: " + e.message);
+    console.error(e);
+  }
+}
+
+function startTimedRun(){
+  try {
+    if(activeMode) { toast('有任务正在运行中，请先暂停/停止'); return; }
+
+    const common = readCommonParams();
+    if(!common) return;
+
+    const startStr = $('timedStart').value.trim();
+    const durationStr = $('timedDuration').value.trim();
+    if(startStr === '' || durationStr === ''){ alert('请填写起始号和时长'); return; }
+    const startAbs = parseInt(startStr, 10);
+    const duration = parseInt(durationStr, 10);
+    const unitSec = parseInt($('timedUnit').value, 10);
+    if(!Number.isFinite(startAbs) || startAbs < 0){ alert('起始号无效'); return; }
+    if(!Number.isFinite(duration) || duration <= 0){ alert('时长必须大于 0'); return; }
+
+    const seconds = duration * unitSec;
+    const aEnd = Math.min(startAbs + 1e12, Number.MAX_SAFE_INTEGER - 1);
+
+    runWithParams({
+      prefix: common.prefix, prefixBytes: common.prefixBytes,
+      actualStart: startAbs, actualEnd: aEnd,
+      threads: common.threads, thresholds: common.thresholds,
+      timedSeconds: seconds
+    }, 'timed');
+  } catch(e) {
+    alert("启动限时测号失败: " + e.message);
+    console.error(e);
+  }
+}
+
+function runWithParams(params, mode){
+  activeMode = mode;
+  running = true;
+  pauseState = null;
+  progressMap = {};
+  activeWorkers = 0;
+  completedWorkers = 0;
+  completedCount = 0;
+  accumulatedMs = 0;
+  nextStart = params.actualStart;
+  actualEnd = params.actualEnd;
+  totalRange = params.actualEnd - params.actualStart;
+  runStartTime = performance.now();
+  runParams = params;
+  timedLastN = 0;
+  lastLiveRender = 0;
+
+  if (params.timedSeconds > 0) {
+    blockSize = 100000;
+  } else {
+    // ★ 限制单块最大 50 万，防止超大号段主线程接收压力过大
+    blockSize = Math.min(500000, Math.max(50000, Math.ceil(totalRange / (params.threads * 8))));
+  }
+
+  rawStats = {};
+  for(const k of KEYS) rawStats[k] = { max: -Infinity, count: 0, examples: [], set: new Set() };
+
+  if(mode === 'timed'){
+    timedEndAt = performance.now() + params.timedSeconds * 1000;
+    $('timedRunBtn').disabled = true;
+    $('rangeRunBtn').disabled = true;
+    $('timedPauseBtn').disabled = false;
+    $('timedPauseBtn').textContent = '暂停';
+    $('timedResults').innerHTML = '';
+    timedResults = null;
+    timedLastInfo = null;
+  } else {
+    $('rangeRunBtn').disabled = true;
+    $('timedRunBtn').disabled = true;
+    $('rangePauseBtn').disabled = false;
+    $('rangePauseBtn').textContent = '暂停';
+    $('rangeResults').innerHTML = '';
+    rangeResults = null;
+    rangeLastInfo = null;
+  }
+
+  const code = coreCode + workerHandlerCode;
+  blobUrl = URL.createObjectURL(new Blob([code], { type: 'application/javascript' }));
+
+  for(let t = 0; t < params.threads; t++){
+    spawnWorker(t);
+  }
+  updateProgress();
+}
+
+function spawnWorker(workerId){
+  const w = new Worker(blobUrl);
+  workers.push(w);
+  activeWorkers++;
+  progressMap[workerId] = 0;
+
+  w.onmessage = (function(wid){
+    return function(ev){
+      if(!running) return;
+      const msg = ev.data;
+      if(msg.type === 'progress'){
+        progressMap[wid] = msg.done;
+        if(activeMode === 'timed' && typeof msg.n === 'number' && msg.n > timedLastN){
+          timedLastN = msg.n;
+        }
+        if(activeMode === 'timed' && performance.now() >= timedEndAt){
+          finishTimedRun();
+          return;
+        }
+        updateProgress();
+      } else if(msg.type === 'done'){
+        mergeStats(rawStats, msg.stats);
+        completedCount += msg.count;
+        progressMap[wid] = 0;
+        if(activeMode === 'timed' && typeof msg.lastN === 'number' && msg.lastN > timedLastN){
+          timedLastN = msg.lastN;
+        }
+        if(activeMode === 'timed' && performance.now() >= timedEndAt){
+          finishTimedRun();
+          return;
+        }
+        if(!dispatchNext(w, wid)){
+          completedWorkers++;
+          if(completedWorkers === activeWorkers && running){
+            if(activeMode === 'range') finishRange();
+            else finishTimedRun();
+          }
+        }
+        updateProgress();
+        tryLiveRender();
+      }
+    };
+  })(workerId);
+
+  w.onerror = function(err){ console.error('Worker 错误：', err); };
+
+  if(!dispatchNext(w, workerId)){
+    completedWorkers++;
+    if(completedWorkers === activeWorkers && running){
+      if(activeMode === 'range') finishRange();
+      else finishTimedRun();
+    }
+  }
+}
+
+function dispatchNext(worker, workerId){
+  if(!running) return false;
+  if(nextStart >= actualEnd) return false;
+
+  const s = nextStart;
+  const e = Math.min(s + blockSize, actualEnd);
+  nextStart = e;
+  progressMap[workerId] = 0;
+
+  worker.postMessage({
+    prefix: runParams.prefix,
+    prefixBytes: runParams.prefixBytes,
+    start: s,
+    end: e,
+    thresholds: runParams.thresholds
+  });
+  return true;
+}
+
+let rangeLastInfo = null;
+let timedLastInfo = null;
+
+function applyHistoryAndSetGlobal(rawStatsRef){
+  const text = $('historyText').value.trim();
+  if(text){
+    const history = parseHistory(text);
+    if(history && KEYS.some(k => history[k])){
+      mergeWithHistory(rawStatsRef, history);
+      return true;
+    }
+  }
+  return false;
+}
+
+function finishRange(){
+  if(!running) return;
+  running = false;
+  accumulatedMs += performance.now() - runStartTime;
+
+  for(const w of workers){ try { w.terminate(); } catch(e){} }
+  workers = [];
+  if(blobUrl){ URL.revokeObjectURL(blobUrl); blobUrl = null; }
+
+  rangeResults = rawStats;
+  const merged = applyHistoryAndSetGlobal(rangeResults);
+  rangeLastInfo = {
+    prefixStr: runParams.prefix,
+    start: runParams.actualStart,
+    end: runParams.actualEnd,
+    elapsedMs: accumulatedMs,
+    merged
+  };
+  renderRangeResults(runParams.prefix, runParams.actualStart, runParams.actualEnd, accumulatedMs, true, false);
+
+  $('rangeProgFill').style.width = '100%';
+  $('rangePauseBtn').textContent = '暂停';
+  $('rangePauseBtn').disabled = true;
+  $('rangeRunBtn').disabled = false;
+  $('timedRunBtn').disabled = false;
+  activeMode = null;
+}
+
+function finishTimedRun(){
+  if(!running) return;
+  running = false;
+  accumulatedMs += performance.now() - runStartTime;
+
+  for(const w of workers){ try { w.terminate(); } catch(e){} }
+  workers = [];
+  if(blobUrl){ URL.revokeObjectURL(blobUrl); blobUrl = null; }
+
+  timedResults = rawStats;
+  const merged = applyHistoryAndSetGlobal(timedResults);
+
+  const nextStart4User = nextStart;
+  const displayLastN = nextStart - 1;
+
+  timedLastInfo = {
+    prefixStr: runParams.prefix,
+    start: runParams.actualStart,
+    end: nextStart,
+    elapsedMs: accumulatedMs,
+    merged, lastN: displayLastN
+  };
+
+  renderTimedResults(runParams.prefix, runParams.actualStart, nextStart, accumulatedMs, displayLastN, false);
+
+  $('timedStart').value = nextStart4User;
+
+  $('timedProgress').textContent =
+    '⏱ 限时完成 | 已处理 ' + completedCount.toLocaleString() + ' 个'
+    + ' | 用时 ' + (accumulatedMs / 1000).toFixed(1) + 's'
+    + ' | 最后号（约）：' + runParams.prefix + displayLastN
+    + ' | 下次起点已填：' + nextStart4User;
+
+  $('timedProgFill').style.width = '100%';
+  $('timedPauseBtn').textContent = '暂停';
+  $('timedPauseBtn').disabled = true;
+  $('timedRunBtn').disabled = false;
+  $('rangeRunBtn').disabled = false;
+  activeMode = null;
+}
+
+function pauseOrResumeRange(){
+  if(activeMode === 'range' && running) pauseRun();
+  else if(activeMode === 'range' && pauseState && pauseState.mode === 'range') resumeRun();
+}
+
+function pauseOrResumeTimed(){
+  if(activeMode === 'timed' && running) pauseRun();
+  else if(activeMode === 'timed' && pauseState && pauseState.mode === 'timed') resumeRun();
+}
+
+function pauseRun(){
+  if(!running) return;
+  accumulatedMs += performance.now() - runStartTime;
+
+  pauseState = {
+    mode: activeMode,
+    nextStart, actualEnd, completedCount, blockSize, accumulatedMs,
+    rawStats: cloneStats(rawStats),
+    params: runParams,
+    timedRemainingMs: activeMode === 'timed' ? Math.max(0, timedEndAt - performance.now()) : 0,
+    timedLastN,
+    totalRange
+  };
+
+  running = false;
+  for(const w of workers){ try { w.terminate(); } catch(e){} }
+  workers = [];
+  if(blobUrl){ URL.revokeObjectURL(blobUrl); blobUrl = null; }
+
+  if(activeMode === 'range'){
+    $('rangePauseBtn').textContent = '继续';
+    $('rangeRunBtn').disabled = false;
+    $('timedRunBtn').disabled = false;
+    $('rangeProgress').textContent =
+      '⏸ 已暂停 | 已处理 ' + completedCount.toLocaleString() + ' / ' + totalRange.toLocaleString()
+      + ' | 用时 ' + (accumulatedMs / 1000).toFixed(1) + 's';
+  } else if(activeMode === 'timed'){
+    $('timedPauseBtn').textContent = '继续';
+    $('timedRunBtn').disabled = false;
+    $('rangeRunBtn').disabled = false;
+    $('timedProgress').textContent =
+      '⏸ 已暂停 | 已处理 ' + completedCount.toLocaleString() + ' 个'
+      + ' | 用时 ' + (accumulatedMs / 1000).toFixed(1) + 's'
+      + ' | 最后号（约）：' + runParams.prefix + Math.max(nextStart - 1, timedLastN);
+  }
+}
+
+function resumeRun(){
+  if(!pauseState) return;
+
+  const curPrefix = $('prefix').value;
+  const curTh = readThresholds();
+  if(curPrefix !== pauseState.params.prefix || JSON.stringify(curTh) !== JSON.stringify(pauseState.params.thresholds)){
+    if(!confirm('前缀或阈值已改变，是否按新参数从断点继续？')){ return; }
+    pauseState.params.prefix = curPrefix;
+    pauseState.params.prefixBytes = new TextEncoder().encode(curPrefix);
+    pauseState.params.thresholds = curTh;
+  }
+
+  activeMode = pauseState.mode;
+  nextStart = pauseState.nextStart;
+  actualEnd = pauseState.actualEnd;
+  rawStats = pauseState.rawStats;
+  completedCount = pauseState.completedCount;
+  blockSize = pauseState.blockSize;
+  accumulatedMs = pauseState.accumulatedMs;
+  runParams = pauseState.params;
+  totalRange = pauseState.totalRange;
+  timedLastN = pauseState.timedLastN;
+
+  if(activeMode === 'timed' && pauseState.timedRemainingMs > 0){
+    timedEndAt = performance.now() + pauseState.timedRemainingMs;
+  }
+  pauseState = null;
+
+  running = true;
+  runStartTime = performance.now();
+  completedWorkers = 0;
+  activeWorkers = 0;
+  progressMap = {};
+  lastLiveRender = 0;
+
+  if(activeMode === 'timed'){
+    $('timedRunBtn').disabled = true;
+    $('rangeRunBtn').disabled = true;
+    $('timedPauseBtn').disabled = false;
+    $('timedPauseBtn').textContent = '暂停';
+  } else {
+    $('rangeRunBtn').disabled = true;
+    $('timedRunBtn').disabled = true;
+    $('rangePauseBtn').disabled = false;
+    $('rangePauseBtn').textContent = '暂停';
+  }
+
+  const code = coreCode + workerHandlerCode;
+  blobUrl = URL.createObjectURL(new Blob([code], { type: 'application/javascript' }));
+
+  for(let t = 0; t < runParams.threads; t++){
+    spawnWorker(t);
+  }
+
+  updateProgress();
+}
+
+/* ★ 修复：实时渲染时限制最多显示 200 个，防止主线程被超大数组卡死 */
+function renderStatsTable(stats, mode, containerId, extraHeader, isLive){
+  let html = '';
+  if(extraHeader) html += extraHeader;
+  if (!isLive) {
+    html += '<div class="group" style="background:transparent;padding:0;margin:8px 0;">'
+          + '<button type="button" class="small primary" onclick="copyResults(\'' + mode + '\')">一键复制结果</button>'
+          + '<button type="button" class="small" onclick="manualMerge(\'' + mode + '\')">合并历史数据</button>'
+          + '</div>';
+  }
+  html += '<table><tr><th>类别</th><th>最高值</th><th>并列数</th><th>筛出装备</th></tr>';
+  for(const k of ORDER){
+    const g = stats ? stats[k] : null;
+    if(!g || g.max === -Infinity){
+      html += '<tr><td>' + LABELS[k] + '</td><td class="val none">无</td><td class="cnt">0</td><td class="ex">无</td></tr>';
+      continue;
+    }
+    let ex = '';
+    if (isLive && g.examples.length > 200) {
+      ex = g.examples.slice(0, 200).map(escapeHtml).join('、') + ' ...（实时展示截断，跑完展示全部）';
+    } else {
+      ex = g.examples.map(escapeHtml).join('、');
+    }
+    html += '<tr><td>' + LABELS[k] + '</td><td class="val">+' + g.max + '</td><td class="cnt">' + g.count.toLocaleString() + '</td><td class="ex">' + ex + '</td></tr>';
+  }
+  html += '</table>';
+  $(containerId).innerHTML = html;
+}
+
+function renderRangeResults(prefix, start, end, elapsed, complete, isLive){
+  const stats = rangeResults;
+  const timeText = complete ? '总耗时：<b>' + fmtSeconds(elapsed) + '</b>' : '实时跑号中...';
+  let html = '<h3>范围测号结果</h3>';
+  if (!isLive) {
+     html += '<div class="summary">' + timeText;
+     if(rangeLastInfo && rangeLastInfo.merged) html += ' &nbsp; <span class="merged">✓ 已与历史数据合并</span>';
+     html += '</div>';
+  } else {
+     html += '<div class="summary" style="color:#059669;background:#ecfdf5;border-color:#a7f3d0;">⏳ 实时成果中 | 已用时 ' + (elapsed/1000).toFixed(1) + 's</div>';
+  }
+  html += '<p class="hint">前缀：<b>' + escapeHtml(prefix) + '</b>，实际范围：['
+        + start.toLocaleString() + ', ' + end.toLocaleString() + ')，共 '
+        + (end - start).toLocaleString() + ' 项。</p>';
+  renderStatsTable(stats, 'range', 'rangeResults', html, isLive);
+}
+
+function renderTimedResults(prefix, start, end, elapsed, lastN, isLive){
+  const stats = timedResults;
+  const timeText = isLive ? '实时跑号中...' : '总耗时：<b>' + fmtSeconds(elapsed) + '</b>';
+  let html = '<h3>限时跑号结果</h3>';
+  if (isLive) {
+     html += '<div class="summary" style="color:#059669;background:#ecfdf5;border-color:#a7f3d0;">⏳ 实时成果中 | 当前最后号：' + escapeHtml(prefix) + lastN + '</div>';
+  } else {
+     html += '<div class="summary">' + timeText
+           + ' &nbsp; <b>最后号（约）：' + escapeHtml(prefix) + lastN + '</b>'
+           + ' &nbsp; <span style="color:#059669;">下次起点：' + (lastN + 1) + '</span>';
+     if(timedLastInfo && timedLastInfo.merged) html += ' &nbsp; <span class="merged">✓ 已与历史数据合并</span>';
+     html += '</div>';
+  }
+  html += '<p class="hint">前缀：<b>' + escapeHtml(prefix) + '</b>，覆盖范围：['
+        + start.toLocaleString() + ', ' + (end).toLocaleString() + ')。</p>';
+  renderStatsTable(stats, 'timed', 'timedResults', html, isLive);
+}
+
+updatePrefixBytes();
+updateRangeDisplay();
+loadHistory();
+
+(function verify(){
+  try {
+    function refWeaponAdd(wname){
+      const enc = new TextEncoder().encode(wname);
+      const key = new Uint8Array(enc.length + 1);
+      key.set(enc, 1);
+      const S = new Array(256);
+      for(let i=0;i<256;i++) S[i] = i;
+      const kl = key.length;
+      for(let r=0;r<2;r++){
+        let j = 0;
+        for(let i=0;i<256;i++){
+          j = (j + S[i] + key[i % kl]) & 0xFF;
+          const t = S[i]; S[i] = S[j]; S[j] = t;
+        }
+      }
+      const ss = S.map(v => v & 63);
+      let pi = 0, pj = 0;
+      function nextByte(){
+        pi = (pi + 1) & 0xFF;
+        pj = (pj + S[pi]) & 0xFF;
+        const t = S[pi]; S[pi] = S[pj]; S[pj] = t;
+        return S[(S[pi] + S[pj]) & 0xFF];
+      }
+      function nextInt(mx){
+        let v = nextByte(); let rnd = mx;
+        while(true){
+          v = ((v << 8) | nextByte()) >>> 0;
+          if(v >= mx) v %= mx;
+          rnd >>>= 8;
+          if(rnd === 0) return v;
+        }
+      }
+      nextInt(40);
+      const attrId = nextInt(8);
+      const seg = ss.slice(40, 48);
+      let sort;
+      if(attrId === 6) sort = seg.slice();
+      else { sort = seg.map(n => n > 53 ? n - 50 : 0); sort[attrId] = 18; }
+      const pos = sort.filter(x => x > 0);
+      const total = 3 * pos.reduce((a,b)=>a+b, 0);
+      const lv = ss.slice(0, 8).sort((a,b)=>a-b);
+      const attrLevel = lv[1] + lv[4] + pos.length;
+      const add = [0,0,0,0,0,0,0,0];
+      if(total === 0) return add;
+      let hpLeft = attrLevel;
+      for(let i=0;i<7;i++){
+        const t = Math.floor(attrLevel * sort[i] / total);
+        hpLeft -= 3 * t;
+        add[i] = t;
+      }
+      if(sort[7] > 0) add[7] = hpLeft;
+      return add;
+    }
+    const r = refWeaponAdd('x');
+    if(r[7] === 344) console.log('[verify] 参考实现 x 的 HP=344 通过');
+    else console.warn('[verify] 参考实现 x 的 HP 期望 344，实际', r[7]);
+  } catch(e){
+    console.warn('[verify] 校验时出现异常：', e);
+  }
+})();
+</script>
+</body>
+</html>
