@@ -1,0 +1,664 @@
+g++ -O3 -march=native -pthread -std=c++17 -o namerena.exe namerena.cpp
+cl /O2 /std:c++17 /EHsc namerena.cpp
+"qp0","qd0","pp0","cqd0","cqd3" | % { iwr "https://hywzcyh.github.io/NrD/$_" -OutFile "$_.js" }
+放到namerena.exe同目录
+// namerena.cpp
+// 编译 (MinGW): g++ -O3 -march=native -pthread -std=c++17 -o namerena.exe namerena.cpp
+// 编译 (MSVC):  cl /O2 /std:c++17 /EHsc namerena.cpp
+//
+// 可选模型文件：qp0.js qd0.js pp0.js cqd0.js cqd3.js 放同目录
+// 没有模型文件时自动退化为「仅八围」模式
+
+#include <cstdio>
+#include <cstdint>
+#include <cstring>
+#include <cstdlib>
+#include <cmath>
+#include <string>
+#include <vector>
+#include <thread>
+#include <atomic>
+#include <mutex>
+#include <algorithm>
+#include <chrono>
+#include <fstream>
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
+using namespace std;
+
+// ============================================================
+// 常量
+// ============================================================
+constexpr int PAIR_TOTAL = 1124;
+
+// ============================================================
+// pairIdx 全局预计算
+// ============================================================
+int32_t pairIdx[46 * 46];
+
+void init_pair_idx() {
+    memset(pairIdx, -1, sizeof(pairIdx));
+    int p = 47;
+    for (int i = 0; i < 46; i++) {
+        for (int j = i; j < 46; j++) {
+            if ((i == 26 && (j == 37 || j == 45)) ||
+                (i == 42 && j == 44) || (i == 44 && j == 44)) continue;
+            pairIdx[i * 46 + j] = p++;
+        }
+    }
+}
+
+// ============================================================
+// 快速整数转字符串
+// ============================================================
+inline int itoa_fast(char* buf, int64_t n) {
+    if (n == 0) { buf[0] = '0'; return 1; }
+    char tmp[24];
+    int len = 0;
+    while (n > 0) { tmp[len++] = (char)('0' + (n % 10)); n /= 10; }
+    for (int i = 0; i < len; i++) buf[i] = tmp[len - 1 - i];
+    return len;
+}
+
+// ============================================================
+// 模型
+// ============================================================
+struct Models {
+    vector<double> qp0, qd0, pp0, cqd0, cqd3;
+    bool loaded = false;
+};
+
+static bool parse_js_array(const string& path, vector<double>& vec) {
+    ifstream f(path, ios::binary);
+    if (!f) return false;
+    string content((istreambuf_iterator<char>(f)), istreambuf_iterator<char>());
+    size_t lb = content.find('[');
+    size_t rb = content.rfind(']');
+    if (lb == string::npos || rb == string::npos || rb <= lb) return false;
+    vec.clear();
+    vec.reserve(PAIR_TOTAL);
+    const char* p = content.data() + lb + 1;
+    const char* e = content.data() + rb;
+    while (p < e) {
+        while (p < e && (*p == ',' || *p == ' ' || *p == '\n' || *p == '\r' || *p == '\t')) p++;
+        if (p >= e) break;
+        char* endp = nullptr;
+        double v = strtod(p, &endp);
+        if (endp == p) { p++; continue; }
+        vec.push_back(v);
+        p = endp;
+    }
+    return vec.size() >= 1000;
+}
+
+static bool try_load(const string& dir, const string& name, vector<double>& vec) {
+    for (const char* ext : {".js", ".txt", ""}) {
+        string path = dir + "/" + name + ext;
+        if (parse_js_array(path, vec)) return true;
+    }
+    return false;
+}
+
+bool load_models(const string& dir, Models& m) {
+    if (!try_load(dir, "qp0", m.qp0)) return false;
+    if (!try_load(dir, "qd0", m.qd0)) return false;
+    if (!try_load(dir, "pp0", m.pp0)) return false;
+    if (!try_load(dir, "cqd0", m.cqd0)) return false;
+    if (!try_load(dir, "cqd3", m.cqd3)) return false;
+    m.loaded = true;
+    return true;
+}
+
+// ============================================================
+// 全局上下文
+// ============================================================
+struct Context {
+    vector<uint8_t> prefix_bytes;
+    int p_len = 0;
+    uint8_t S_team[256];
+    double th_e8 = 672.0;
+    int th_sqp = 5500;
+    int th_sqd = 6000;
+    int th_spp = 6500;
+    int th_scqd = 4000;
+    int64_t g_start = 0;
+    int64_t g_end = 0;
+    int n_threads = 8;
+    int BLOCK = 20000;
+    const Models* models = nullptr;
+    bool quiet = false;
+};
+
+Context CTX;
+
+// ============================================================
+// 每线程缓冲
+// ============================================================
+struct ThreadBuf {
+    uint8_t S[256];
+    uint8_t S2[256];
+    uint8_t base[128];
+    uint8_t base2[128];
+    uint8_t skl_id[40];
+    uint8_t freq[40];
+    uint8_t arr[10];
+    uint8_t arr2[10];
+    double x[46];
+    uint8_t active[46];
+    uint8_t nameBuf[256];
+    uint8_t shadowBuf[256];
+    uint8_t skl_init[40];
+    ThreadBuf() { for (int i = 0; i < 40; i++) skl_init[i] = (uint8_t)i; }
+};
+thread_local ThreadBuf TB;
+
+// ============================================================
+// 初始化 team
+// ============================================================
+void init_team(const string& team) {
+    vector<uint8_t> tk(1, 0);
+    for (char c : team) tk.push_back((uint8_t)c);
+    int t_len = (int)tk.size();
+    for (int i = 0; i < 256; i++) CTX.S_team[i] = (uint8_t)i;
+    int j = 0, kt = 0;
+    for (int i = 0; i < 256; i++) {
+        j = (j + CTX.S_team[i] + tk[kt]) & 0xFF;
+        swap(CTX.S_team[i], CTX.S_team[j]);
+        kt++; if (kt >= t_len) kt = 0;
+    }
+}
+
+// ============================================================
+// med3
+// ============================================================
+inline int med3(int a, int b, int c) {
+    if (a > b) swap(a, b);
+    if (b > c) swap(b, c);
+    if (a > b) swap(a, b);
+    return b;
+}
+
+// ============================================================
+// 单号完整计算
+// ============================================================
+struct EvalResult {
+    int64_t n;
+    double e8;
+    int qp, qd, pp, cqd;
+    bool pass_qp, pass_qd, pass_pp, pass_cqd;
+};
+
+inline EvalResult eval_one(int64_t n) {
+    ThreadBuf& b = TB;
+    Context& c = CTX;
+
+    char digits[24];
+    int nd = itoa_fast(digits, n);
+    int base_len = c.p_len + 2;
+    memcpy(b.nameBuf + base_len, digits, nd);
+    int n_len = base_len + nd;
+
+    // KSA 2 遍
+    memcpy(b.S, c.S_team, 256);
+    int j = 0, kIdx = 0;
+    for (int i = 0; i < 256; i++) {
+        j = (j + b.S[i] + b.nameBuf[kIdx]) & 0xFF;
+        uint8_t t = b.S[i]; b.S[i] = b.S[j]; b.S[j] = t;
+        kIdx++; if (kIdx >= n_len) kIdx = 0;
+    }
+    j = 0; kIdx = 0;
+    for (int i = 0; i < 256; i++) {
+        j = (j + b.S[i] + b.nameBuf[kIdx]) & 0xFF;
+        uint8_t t = b.S[i]; b.S[i] = b.S[j]; b.S[j] = t;
+        kIdx++; if (kIdx >= n_len) kIdx = 0;
+    }
+
+    // 前 31 个 base
+    int cnt = 0, i = 0;
+    for (; i < 256 && cnt < 31; i++) {
+        uint8_t m = (uint8_t)((b.S[i] * 181 + 160) & 0xFF);
+        if (m >= 89 && m < 217) b.base[cnt++] = m & 63;
+    }
+    if (cnt < 31) memset(b.base + cnt, 0, 31 - cnt);
+
+    // 排序前 10
+    memcpy(b.arr, b.base, 10);
+    for (int k = 1; k < 10; k++) {
+        uint8_t v = b.arr[k];
+        int jj = k - 1;
+        while (jj >= 0 && b.arr[jj] > v) { b.arr[jj+1] = b.arr[jj]; jj--; }
+        b.arr[jj+1] = v;
+    }
+
+    EvalResult r;
+    r.n = n;
+    r.qp = r.qd = r.pp = r.cqd = 0;
+    r.pass_qp = r.pass_qd = r.pass_pp = r.pass_cqd = false;
+
+    int hp    = 154 + b.arr[3] + b.arr[4] + b.arr[5] + b.arr[6];
+    int atk   = med3(b.base[10], b.base[11], b.base[12]) + 36;
+    int def   = med3(b.base[13], b.base[14], b.base[15]) + 36;
+    int spd   = med3(b.base[16], b.base[17], b.base[18]) + 36;
+    int agi   = med3(b.base[19], b.base[20], b.base[21]) + 36;
+    int mag   = med3(b.base[22], b.base[23], b.base[24]) + 36;
+    int res   = med3(b.base[25], b.base[26], b.base[27]) + 36;
+    int intel = med3(b.base[28], b.base[29], b.base[30]) + 36;
+    r.e8 = hp * (1.0/3.0) + atk + def + spd + agi + mag + res + intel;
+
+    if (r.e8 < c.th_e8) return r;
+
+    // 没模型就返回
+    if (!c.models || !c.models->loaded) return r;
+
+    // 补齐到 128
+    for (; i < 256 && cnt < 128; i++) {
+        uint8_t m = (uint8_t)((b.S[i] * 181 + 160) & 0xFF);
+        if (m >= 89 && m < 217) b.base[cnt++] = m & 63;
+    }
+    if (cnt < 128) memset(b.base + cnt, 0, 128 - cnt);
+
+    // 技能洗牌
+    memcpy(b.skl_id, b.skl_init, 40);
+    memset(b.freq, 0, 16);
+    int a = 0, bb = 0, s = 0;
+    for (int rr = 0; rr < 2; rr++) {
+        for (int k = 0; k < 40; k++) {
+            a += 1; bb = (bb + b.S[a]) & 0xFF;
+            uint8_t t1 = b.S[a]; b.S[a] = b.S[bb]; b.S[bb] = t1;
+            int u = b.S[(b.S[a] + b.S[bb]) & 0xFF];
+            a += 1; bb = (bb + b.S[a]) & 0xFF;
+            uint8_t t2 = b.S[a]; b.S[a] = b.S[bb]; b.S[bb] = t2;
+            int tv = b.S[(b.S[a] + b.S[bb]) & 0xFF];
+            int rnd = ((u << 8) | tv) % 40;
+            s += rnd + b.skl_id[k];
+            if (s >= 40) { s -= 40; if (s >= 40) s -= 40; }
+            uint8_t ts = b.skl_id[k]; b.skl_id[k] = b.skl_id[s]; b.skl_id[s] = ts;
+        }
+    }
+
+    // 技能频率
+    int last = -1;
+    for (int jj = 0; jj < 16; jj++) {
+        int id = 64 + jj * 4;
+        int p = b.base[id];
+        if (b.base[id+1] < p) p = b.base[id+1];
+        if (b.base[id+2] < p) p = b.base[id+2];
+        if (b.base[id+3] < p) p = b.base[id+3];
+        if (p > 10 && b.skl_id[jj] < 35) {
+            b.freq[jj] = (uint8_t)(p - 10);
+            if (b.skl_id[jj] < 25) last = jj;
+        }
+    }
+    if (last == -1) {
+        if (b.freq[14] > 0) { int m = min(b.base[60], b.base[61]); b.freq[14] += min((int)b.freq[14], m); }
+        if (b.freq[15] > 0) { int m = min(b.base[62], b.base[63]); b.freq[15] += min((int)b.freq[15], m); }
+    } else if (last == 14) {
+        b.freq[14] <<= 1;
+        if (b.freq[15] > 0) { int m = min(b.base[62], b.base[63]); b.freq[15] += min((int)b.freq[15], m); }
+    } else if (last == 15) {
+        b.freq[15] <<= 1;
+        if (b.freq[14] > 0) { int m = min(b.base[60], b.base[61]); b.freq[14] += min((int)b.freq[14], m); }
+    } else {
+        b.freq[last] <<= 1;
+        if (b.freq[14] > 0) { int m = min(b.base[60], b.base[61]); b.freq[14] += min((int)b.freq[14], m); }
+        if (b.freq[15] > 0) { int m = min(b.base[62], b.base[63]); b.freq[15] += min((int)b.freq[15], m); }
+    }
+
+    // x 向量
+    b.x[0] = hp; b.x[1] = atk; b.x[2] = def; b.x[3] = spd;
+    b.x[4] = agi; b.x[5] = mag; b.x[6] = res; b.x[7] = intel;
+    for (int k = 8; k < 46; k++) b.x[k] = 0;
+
+    double zd = 1, kill = 1;
+    for (int k = 0; k < 16; k++) {
+        int skId = b.skl_id[k], f = b.freq[k];
+        if (skId >= 35 || f == 0) continue;
+        if (skId == 9 || skId == 16) { b.x[skId+8] = zd * f; zd *= (1 - f * 0.00234375); }
+        else if (skId == 18) { b.x[skId+8] = zd * f; zd *= (1 - f * 0.002734375); }
+        else if (skId == 19 || skId == 23) { b.x[skId+8] = zd * f; zd *= (1 - f * 0.0046875); }
+        else if (skId == 20 || skId == 22) { b.x[skId+8] = zd * f; zd *= (1 - f * 0.00546875); }
+        else if (skId < 25) { b.x[skId+8] = zd * f; zd *= (1 - f * 0.0078125); }
+        else if (skId == 31 || skId == 32) { b.x[skId+8] = kill * f; kill *= (1 - f * 0.0078125); }
+        else { b.x[skId+8] = f; }
+    }
+
+    // 护盾非线性
+    if (b.x[37] <= 70) b.x[37] = b.x[37] * b.x[37] / 70;
+    else b.x[37] = b.x[37] * 2 - 70;
+
+    // shadow
+    if (b.x[32] > 0) {
+        memset(b.base2, 0, 31);
+        memcpy(b.shadowBuf, b.nameBuf, n_len);
+        const char suffix[] = "?shadow";
+        int sl = 7;
+        memcpy(b.shadowBuf + n_len, suffix, sl);
+        int sLen = n_len + sl;
+
+        memcpy(b.S2, c.S_team, 256);
+        int j2 = 0, k2 = 0;
+        for (int ii = 0; ii < 256; ii++) {
+            j2 = (j2 + b.S2[ii] + b.shadowBuf[k2]) & 0xFF;
+            uint8_t t = b.S2[ii]; b.S2[ii] = b.S2[j2]; b.S2[j2] = t;
+            k2++; if (k2 >= sLen) k2 = 0;
+        }
+        j2 = 0; k2 = 0;
+        for (int ii = 0; ii < 256; ii++) {
+            j2 = (j2 + b.S2[ii] + b.shadowBuf[k2]) & 0xFF;
+            uint8_t t = b.S2[ii]; b.S2[ii] = b.S2[j2]; b.S2[j2] = t;
+            k2++; if (k2 >= sLen) k2 = 0;
+        }
+        int cnt2 = 0;
+        for (int ii = 0; ii < 256 && cnt2 < 31; ii++) {
+            uint8_t m = (uint8_t)((b.S2[ii] * 181 + 160) & 0xFF);
+            if (m >= 89 && m < 217) b.base2[cnt2++] = m & 63;
+        }
+        memcpy(b.arr2, b.base2, 10);
+        for (int k = 1; k < 10; k++) {
+            uint8_t v = b.arr2[k];
+            int jj = k - 1;
+            while (jj >= 0 && b.arr2[jj] > v) { b.arr2[jj+1] = b.arr2[jj]; jj--; }
+            b.arr2[jj+1] = v;
+        }
+        int hp2    = 154 + b.arr2[3] + b.arr2[4] + b.arr2[5] + b.arr2[6];
+        int atk2   = med3(b.base2[10], b.base2[11], b.base2[12]);
+        int def2   = med3(b.base2[13], b.base2[14], b.base2[15]);
+        int spd2   = med3(b.base2[16], b.base2[17], b.base2[18]);
+        int agi2   = med3(b.base2[19], b.base2[20], b.base2[21]);
+        int mag2   = med3(b.base2[22], b.base2[23], b.base2[24]);
+        int res2   = med3(b.base2[25], b.base2[26], b.base2[27]);
+        int intel2 = med3(b.base2[28], b.base2[29], b.base2[30]);
+        double shadowi = atk2*2.8 + def2*0.6 + spd2*2.5 + agi2*1.2 + mag2 + res2 - 1.2*intel2 + 0.8*hp2;
+        b.x[43] = shadowi * b.x[32] / 100;
+    } else {
+        b.x[43] = 0;
+    }
+
+    if (b.x[42] > 0) b.x[44] = 1;
+    if (b.x[37] > 0) { b.x[45] = b.x[26]; b.x[26] = 0; }
+
+    // 稀疏点积
+    const Models* m = c.models;
+    double scoreQP  = m->qp0[0];
+    double scoreQD  = m->qd0[0];
+    double scorePP  = m->pp0[0];
+    double scoreCQD2 = m->cqd0[0];
+    int activeLen = 0;
+    for (int k = 0; k < 46; k++) if (b.x[k] != 0.0) b.active[activeLen++] = k;
+
+    for (int ai = 0; ai < activeLen; ai++) {
+        int k = b.active[ai];
+        double v = b.x[k];
+        scoreQP   += m->qp0[1 + k] * v;
+        scoreQD   += m->qd0[1 + k] * v;
+        scorePP   += m->pp0[1 + k] * v;
+        scoreCQD2 += m->cqd0[1 + k] * v;
+    }
+    for (int ai = 0; ai < activeLen; ai++) {
+        int k = b.active[ai];
+        double xk = b.x[k];
+        for (int bi = ai; bi < activeLen; bi++) {
+            int l = b.active[bi];
+            int mi = pairIdx[k * 46 + l];
+            if (mi < 0) continue;
+            double v = xk * b.x[l];
+            scoreQP   += m->qp0[mi] * v;
+            scoreQD   += m->qd0[mi] * v;
+            scorePP   += m->pp0[mi] * v;
+            scoreCQD2 += m->cqd0[mi] * v;
+        }
+    }
+
+    // cqd3 分支
+    double scoreCQD1 = 0;
+    if (b.x[32] >= 30) {
+        scoreCQD1 = m->cqd3[0];
+        int idx = 1;
+        for (int ii = 0; ii < 46; ii++) scoreCQD1 += m->cqd3[idx++] * b.x[ii];
+        for (int ii = 0; ii < 46; ii++) {
+            for (int jj = ii; jj < 46; jj++) {
+                if ((ii == 26 && (jj == 37 || jj == 45)) ||
+                    (ii == 42 && jj == 44) || (ii == 44 && jj == 44)) continue;
+                scoreCQD1 += m->cqd3[idx++] * (b.x[ii] * b.x[jj]);
+            }
+        }
+    }
+    double scoreCQD = max(scoreCQD1, scoreCQD2) * 100;
+
+    r.qp  = (int)floor(scoreQP  + 0.5);
+    r.qd  = (int)floor(scoreQD  + 0.5);
+    r.pp  = (int)floor(scorePP  + 0.5);
+    r.cqd = (int)floor(scoreCQD + 0.5);
+    r.pass_qp  = r.qp  >= c.th_sqp;
+    r.pass_qd  = r.qd  >= c.th_sqd;
+    r.pass_pp  = r.pp  >= c.th_spp;
+    r.pass_cqd = r.cqd >= c.th_scqd;
+    return r;
+}
+
+// ============================================================
+// 多线程调度
+// ============================================================
+atomic<int64_t> g_next{0};
+atomic<int64_t> g_processed{0};
+mutex g_mtx;
+vector<EvalResult> g_hits;
+EvalResult g_best_e8;
+bool g_has_best_e8 = false;
+
+void worker_run() {
+    // 初始化 nameBuf 前部
+    memset(TB.nameBuf, 0, 256);
+    for (size_t i = 0; i < CTX.prefix_bytes.size(); i++) TB.nameBuf[i] = CTX.prefix_bytes[i];
+    TB.nameBuf[CTX.p_len + 1] = ' ';
+
+    vector<EvalResult> local_hits;
+    EvalResult local_best{};
+    bool has_local_best = false;
+
+    int64_t last_progress = 0;
+    auto t_start = chrono::steady_clock::now();
+
+    while (true) {
+        int64_t ws = g_next.fetch_add(CTX.BLOCK);
+        if (ws > CTX.g_end) break;
+        int64_t we = min(ws + CTX.BLOCK - 1, CTX.g_end);
+
+        for (int64_t n = ws; n <= we; n++) {
+            EvalResult r = eval_one(n);
+            if (r.e8 < CTX.th_e8) continue;
+
+            if (CTX.models && CTX.models->loaded) {
+                if (r.pass_qp || r.pass_qd || r.pass_pp || r.pass_cqd) local_hits.push_back(r);
+            } else {
+                if (!has_local_best || r.e8 > local_best.e8) {
+                    local_best = r;
+                    has_local_best = true;
+                }
+            }
+        }
+
+        int64_t processed = g_processed.fetch_add(we - ws + 1) + (we - ws + 1);
+        if (!CTX.quiet) {
+            auto t_now = chrono::steady_clock::now();
+            if (chrono::duration<double>(t_now - t_start).count() - last_progress > 1.0) {
+                last_progress = chrono::duration<double>(t_now - t_start).count();
+                double pct = (double)processed / (CTX.g_end - CTX.g_start + 1) * 100;
+                printf("[进度] %.1f%% (%lld / %lld) | %.1f s\n",
+                       pct, (long long)processed, (long long)(CTX.g_end - CTX.g_start + 1),
+                       last_progress);
+            }
+        }
+    }
+
+    lock_guard<mutex> lk(g_mtx);
+    for (auto& h : local_hits) g_hits.push_back(h);
+    if (has_local_best) {
+        if (!g_has_best_e8 || local_best.e8 > g_best_e8.e8) {
+            g_best_e8 = local_best;
+            g_has_best_e8 = true;
+        }
+    }
+}
+
+// ============================================================
+// 主函数
+// ============================================================
+static string input_line(const char* prompt, const string& def) {
+    printf("%s", prompt);
+    if (!def.empty()) printf("[默认 \"%s\"] ", def.c_str());
+    printf(": ");
+    fflush(stdout);
+    char buf[256];
+    if (!fgets(buf, sizeof(buf), stdin)) return def;
+    string s(buf);
+    if (!s.empty() && s.back() == '\n') s.pop_back();
+    if (s.empty()) return def;
+    return s;
+}
+
+int main(int argc, char** argv) {
+#ifdef _WIN32
+    SetConsoleOutputCP(65001);
+#endif
+    setvbuf(stdout, nullptr, _IONBF, 0);
+
+    init_pair_idx();
+
+    printf("=== Namerena C++ 多线程跑号 ===\n\n");
+
+    string prefix = input_line("前缀 (可含尾随空格)", "Fin ");
+    string team   = input_line("战队", "HYWZ");
+    string s_start = input_line("起始号", "0");
+    string s_end   = input_line("结束号 (支持 1e9)", "1000000");
+    string s_e8    = input_line("八围阈值", "672");
+
+    int64_t start = (int64_t)atof(s_start.c_str());
+    int64_t end   = (int64_t)atof(s_end.c_str());
+    CTX.th_e8 = atof(s_e8.c_str());
+    CTX.g_start = start;
+    CTX.g_end = end;
+
+    int hc = (int)thread::hardware_concurrency();
+    if (hc <= 0) hc = 8;
+    char buf[64];
+    snprintf(buf, sizeof(buf), "%d", hc);
+    string s_th = input_line("线程数", buf);
+    CTX.n_threads = max(1, atoi(s_th.c_str()));
+
+    // 加载模型
+    Models models;
+    if (load_models(".", models)) {
+        CTX.models = &models;
+        printf("\n[模型] ✅ 已加载 (qp0/qd0/pp0/cqd0/cqd3)\n");
+        char b1[32], b2[32], b3[32], b4[32];
+        snprintf(b1, 32, "%d", CTX.th_sqp);
+        snprintf(b2, 32, "%d", CTX.th_sqd);
+        snprintf(b3, 32, "%d", CTX.th_spp);
+        snprintf(b4, 32, "%d", CTX.th_scqd);
+        string t1 = input_line("SQP 阈值", b1); CTX.th_sqp = atoi(t1.c_str());
+        string t2 = input_line("SQD 阈值", b2); CTX.th_sqd = atoi(t2.c_str());
+        string t3 = input_line("SPP 阈值", b3); CTX.th_spp = atoi(t3.c_str());
+        string t4 = input_line("SCQD 阈值", b4); CTX.th_scqd = atoi(t4.c_str());
+    } else {
+        CTX.models = nullptr;
+        printf("\n[模型] ⚠️ 未找到模型文件，仅跑八围（输出八围最高的号）\n");
+    }
+
+    // 设置 prefix
+    CTX.prefix_bytes.clear();
+    CTX.prefix_bytes.push_back(0);
+    for (char c : prefix) CTX.prefix_bytes.push_back((uint8_t)c);
+    CTX.p_len = (int)prefix.size();
+
+    init_team(team);
+
+    printf("\n=== 配置 ===\n");
+    printf("前缀: \"%s\"\n", prefix.c_str());
+    printf("战队: %s\n", team.c_str());
+    printf("范围: %lld ~ %lld (共 %lld 个)\n",
+           (long long)start, (long long)end, (long long)(end - start + 1));
+    printf("八围 ≥ %.2f\n", CTX.th_e8);
+    printf("线程: %d\n", CTX.n_threads);
+    printf("模式: %s\n\n", CTX.models ? "完整四模型" : "仅八围");
+
+    auto t0 = chrono::steady_clock::now();
+    g_next = start;
+
+    vector<thread> workers;
+    for (int i = 0; i < CTX.n_threads; i++) workers.emplace_back(worker_run);
+    for (auto& t : workers) t.join();
+
+    auto t1 = chrono::steady_clock::now();
+    double elapsed = chrono::duration<double>(t1 - t0).count();
+    int64_t total = end - start + 1;
+
+    printf("\n=== 完成 ===\n");
+    printf("总耗时: %.3f s\n", elapsed);
+    printf("处理: %lld 号\n", (long long)total);
+    printf("平均速度: %.0f /s (%.2f 亿/s)\n", total / elapsed, total / elapsed / 1e8);
+
+    if (CTX.models && CTX.models->loaded) {
+        vector<EvalResult> qpL, qdL, ppL, cqdL;
+        for (const auto& r : g_hits) {
+            if (r.pass_qp)  qpL.push_back(r);
+            if (r.pass_qd)  qdL.push_back(r);
+            if (r.pass_pp)  ppL.push_back(r);
+            if (r.pass_cqd) cqdL.push_back(r);
+        }
+        auto mk_cmp = [](int which) {
+            return [which](const EvalResult& a, const EvalResult& b) {
+                int va = which == 0 ? a.qp : which == 1 ? a.qd : which == 2 ? a.pp : a.cqd;
+                int vb = which == 0 ? b.qp : which == 1 ? b.qd : which == 2 ? b.pp : b.cqd;
+                return va > vb;
+            };
+        };
+        sort(qpL.begin(), qpL.end(), mk_cmp(0));
+        sort(qdL.begin(), qdL.end(), mk_cmp(1));
+        sort(ppL.begin(), ppL.end(), mk_cmp(2));
+        sort(cqdL.begin(), cqdL.end(), mk_cmp(3));
+
+        printf("\n[SQP 池 ≥ %d] %zu 个\n", CTX.th_sqp, qpL.size());
+        for (const auto& r : qpL) printf("  %s%lld@%s | 八围:%.2f | SQP:%d\n",
+            prefix.c_str(), (long long)r.n, team.c_str(), r.e8, r.qp);
+        printf("\n[SQD 池 ≥ %d] %zu 个\n", CTX.th_sqd, qdL.size());
+        for (const auto& r : qdL) printf("  %s%lld@%s | 八围:%.2f | SQD:%d\n",
+            prefix.c_str(), (long long)r.n, team.c_str(), r.e8, r.qd);
+        printf("\n[SPP 池 ≥ %d] %zu 个\n", CTX.th_spp, ppL.size());
+        for (const auto& r : ppL) printf("  %s%lld@%s | 八围:%.2f | SPP:%d\n",
+            prefix.c_str(), (long long)r.n, team.c_str(), r.e8, r.pp);
+        printf("\n[SCQD 池 ≥ %d] %zu 个\n", CTX.th_scqd, cqdL.size());
+        for (const auto& r : cqdL) printf("  %s%lld@%s | 八围:%.2f | SCQD:%d\n",
+            prefix.c_str(), (long long)r.n, team.c_str(), r.e8, r.cqd);
+
+        FILE* fp = fopen("result.txt", "w");
+        if (fp) {
+            fprintf(fp, "# SQP 池\n");
+            for (const auto& r : qpL) fprintf(fp, "%s%lld@%s | 八围:%.2f | SQP:%d\n",
+                prefix.c_str(), (long long)r.n, team.c_str(), r.e8, r.qp);
+            fprintf(fp, "\n# SQD 池\n");
+            for (const auto& r : qdL) fprintf(fp, "%s%lld@%s | 八围:%.2f | SQD:%d\n",
+                prefix.c_str(), (long long)r.n, team.c_str(), r.e8, r.qd);
+            fprintf(fp, "\n# SPP 池\n");
+            for (const auto& r : ppL) fprintf(fp, "%s%lld@%s | 八围:%.2f | SPP:%d\n",
+                prefix.c_str(), (long long)r.n, team.c_str(), r.e8, r.pp);
+            fprintf(fp, "\n# SCQD 池\n");
+            for (const auto& r : cqdL) fprintf(fp, "%s%lld@%s | 八围:%.2f | SCQD:%d\n",
+                prefix.c_str(), (long long)r.n, team.c_str(), r.e8, r.cqd);
+            fclose(fp);
+            printf("\n结果已保存到 result.txt\n");
+        }
+    } else {
+        if (g_has_best_e8) {
+            printf("\n八围最高: %.2f → %s%lld@%s\n",
+                g_best_e8.e8, prefix.c_str(), (long long)g_best_e8.n, team.c_str());
+        } else {
+            printf("\n范围内无八围达标的号\n");
+        }
+    }
+
+    return 0;
+}
